@@ -3,37 +3,37 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>/www.markwebsterstats.netlify.com/about/</loc>
+    <loc>/about/</loc>
     <lastmod>2019-12-01T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/www.markwebsterstats.netlify.com/academic/</loc>
+    <loc>/academic/</loc>
     <lastmod>2019-12-01T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/www.markwebsterstats.netlify.com/</loc>
+    <loc>/</loc>
     <lastmod>2019-12-01T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/www.markwebsterstats.netlify.com/papers/</loc>
+    <loc>/papers/</loc>
     <lastmod>2019-12-01T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/www.markwebsterstats.netlify.com/thesis/</loc>
+    <loc>/thesis/</loc>
     <lastmod>2019-12-01T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/www.markwebsterstats.netlify.com/codex/</loc>
+    <loc>/codex/</loc>
     <lastmod>2019-11-30T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/www.markwebsterstats.netlify.com/tags/</loc>
+    <loc>/tags/</loc>
   </url>
   
 </urlset>
