@@ -27,7 +27,3 @@ Applied Physics Letters, Volume 104, Issue 6, ID 063503. DOI:10.1063/1.4865199\
 This looked at devices for detecting photons passing through it. If I remember correctly, the rough description of its workings is that we have several thin wires in parallel, and a if a photon hits a wire it increases the resistance enough for the wire to "trip". If enough of the wires trip, the resistance of the whole circuit raises enough for everything to trip, and the device registers a detection. Every so often, all the wires will reset. There are also "dark counts", where a wire trips due to natural fluctuations rather than being hit by a photon.\
 I helped work out the probability of a detection registration, given the probability of a photon tripping a wire, probability of a dark count, number of photons passing through the device, and so on. It's a kind of urn-ball allocation model, where balls have a chance to miss all the urns and urns might receive fake balls. I don't think the general probability formula was used in the end, just the very simple cases that occur in practice.\
 [ArXiv version](http://arxiv.org/abs/1402.2879) [Journal version](http://scitation.aip.org/content/aip/journal/apl/104/6/10.1063/1.4865199)
-
----
-
-[Back to Academic work](../academic/)
