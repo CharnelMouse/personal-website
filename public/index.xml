@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Mark Webster</title>
+    <link>/</link>
+    <description>Recent content on Mark Webster</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
+    <lastBuildDate>Sun, 01 Dec 2019 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>About</title>
+      <link>/about/</link>
+      <pubDate>Sun, 01 Dec 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/about/</guid>
+      <description>This is the personal site of Mark Webster, former Statistics postgraduate at University of Leeds (UK), now a Data Scientist at Visformatics. My current work is under wraps, but I aim to make this site a portfolio for older work and side projects. It&#39;s currently under construction. I&#39;m planning to migrate over my posts on my old blog. In the meantime, you can see them at the old Probability and Statistics blog, The Accidental Statistician.</description>
+    </item>
+    
+    <item>
+      <title>Academic work</title>
+      <link>/academic/</link>
+      <pubDate>Sun, 01 Dec 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/academic/</guid>
+      <description>Until recently, I was working in academia. My undergraduate was in Mathematics, my postgraduate was in Statistics.
+Thesis
+Papers</description>
+    </item>
+    
+    <item>
+      <title>Papers</title>
+      <link>/papers/</link>
+      <pubDate>Sun, 01 Dec 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/papers/</guid>
+      <description>2016 CONVERGENCE PROPERTIES OF APPROXIMATE BAYESIAN COMPUTATION
+PhD Thesis.
+This looked at the rate of convergence for several versions of the ABC algorithm. Some of the results were also published in Barber et. al. 2015. The other main section looks at a new variants, which has a better rate of convergence for posterior mean estimation.
+White Rose eTheses Online version
+2015 THE RATE OF CONVERGENCE FOR APPROXIMATE BAYESIAN COMPUTATION
+with Stuart Barber and Jochen Voss.</description>
+    </item>
+    
+    <item>
+      <title>Thesis</title>
+      <link>/thesis/</link>
+      <pubDate>Sun, 01 Dec 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/thesis/</guid>
+      <description>Approximate Bayesian Computation is a Monte Carlo method that is rather naïve, because in its basic form it does not use any assumptions about the distributions involved, outside of the prior densities and the model process. This naiveté results in computational inefficiency, but means ABC can be applied to problems that are not yet well understood enough for more sophisticated methods.
+However, one complication is that the algorithm requires a tolerance parameter, which determines how forgiving it is about simulation data being different from the original observations.</description>
+    </item>
+    
+    <item>
+      <title>Codex game model</title>
+      <link>/codex/</link>
+      <pubDate>Sat, 30 Nov 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/codex/</guid>
+      <description>Codex is a card game by Sirlin Games. It is a non-collectible card game, that is a mix of Magic: The Gathering&#39;s combat mechanics, Dominion-like games&amp;rsquo; deck building, and a strategic layer themed around real-time strategy games, especially Warcraft III.
+Official pages:
+ Codex page at Sirlin Games, including links to articles on the game&#39;s design at David Sirlin&#39;s design blog. Official Sirlin Games forum  The game is played with decks consisting of three different &amp;ldquo;specs&amp;rdquo;.</description>
+    </item>
+    
+  </channel>
+</rss>

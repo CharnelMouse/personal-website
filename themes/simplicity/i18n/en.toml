@@ -1,0 +1,17 @@
+[postsAbout]
+other = "Posts about:"
+
+[postsList]
+other = "List of posts"
+
+[homePage]
+other = "Homepage"
+
+[categories]
+other = "Categories"
+
+[tags]
+other = "Tags"
+
+[pages]
+other = "Pages"

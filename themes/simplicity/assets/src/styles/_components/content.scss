@@ -1,0 +1,208 @@
+body {
+  main {
+    article {
+      header {
+        margin-bottom: 5rem;
+        text-align: center;
+
+        time {
+          color: $color-silver;
+        }
+      }
+
+      section {
+        ins.adsbygoogle,
+        video {
+          margin: 5rem auto;
+        }
+
+        figure {
+          margin: $itemMargin 0;
+
+          &.full {
+            left: 50%;
+            margin-left: -50vw;
+            margin-right: -50vw;
+            position: relative;
+            right: 50%;
+            width: 100vw;
+          }
+
+          img {
+            display: block;
+            height: auto;
+            margin: 0 auto;
+            max-width: 100%;
+            padding: 0;
+
+            &.full {
+              left: 50%;
+              margin-left: -50vw;
+              margin-right: -50vw;
+              position: relative;
+              right: 50%;
+              width: 100vw;
+            }
+          }
+
+          figcaption {
+            text-align: center;
+          }
+        }
+
+        table {
+          tbody {
+            tr {
+              td {
+                &[align="left"] {
+                  text-align: left;
+                }
+                &[align="right"] {
+                  text-align: right;
+                }
+                &[align="center"] {
+                  text-align: center;
+                }
+              }
+            }
+          }
+        }
+
+        pre {
+          border-left: 0.3rem solid $links-color;
+          display: grid;
+          // overflow: auto;
+
+          code {
+            background-color: transparent;
+            min-width: 0;
+          }
+        }
+
+        .gist {
+          width: 100%;
+
+          & table {
+            table-layout: fixed;
+          }
+
+          & td.js-line-number{
+            width: 50px;
+            text-align: center;
+          }
+        }
+
+        iframe.instagram-media {
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+
+        img {
+          display: block;
+          height: auto;
+          margin: $itemMargin auto;
+          max-width: 100%;
+          padding: 0;
+
+            &.full {
+              left: 50%;
+              margin-left: -50vw;
+              margin-right: -50vw;
+              position: relative;
+              right: 50%;
+              width: 100vw;
+            }
+        }
+
+        p {
+          code {
+            background-color: $color-zhen-zhu-bai-pearl;
+            color: $color-bara-red;
+            white-space: normal;
+
+            /* These are technically the same, but use both */
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+
+            -ms-word-break: break-all;
+            /* This is the dangerous one in WebKit, as it breaks things wherever */
+            word-break: break-all;
+            /* Instead use this non-standard one: */
+            word-break: break-word;
+
+            /* Adds a hyphen where the word breaks, if supported (No Blink) */
+            -ms-hyphens: auto;
+            -moz-hyphens: auto;
+            -webkit-hyphens: auto;
+            hyphens: auto;
+          }
+        }
+
+        ul {
+          &.task-list {
+            list-style: none;
+            padding: 0;
+          }
+        }
+
+        ol {
+          list-style: decimal;
+        }
+
+        video {
+          display: block;
+          width: 100%
+        }
+
+        .embed-container {
+          height: 0;
+          max-width: 100%;
+          overflow: hidden;
+          padding-bottom: 56.25%;
+          position: relative;
+
+          embed, iframe, object {
+            height: 100%;
+            left: 0;
+            position: absolute;
+            top: 0;
+            width: 100%;
+          }
+        }
+
+        .speakerdeck {
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+
+        .twitter-tweet {
+          @media (max-width: 550px) {
+            width: 0 !important;
+          }
+
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+      }
+
+      footer {
+        text-align: center;
+
+        .meta {
+          .tags {
+            a {
+              span {
+                color: $color-silver;
+              }
+            }
+          }
+        }
+
+        #disqus_thread {
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+      }
+    }
+  }
+}

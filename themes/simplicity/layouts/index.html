@@ -1,0 +1,11 @@
+{{ define "main" }}
+  <article>
+    <section>
+      <img
+      class="homepage-avatar"
+      src="https://www.gravatar.com/avatar/{{ md5 .Site.Author.gravataremail }}?s=100&d=identicon"
+      >
+      {{ .Content }}
+    </section>
+  </article>
+{{ end }}

@@ -1,0 +1,26 @@
+ul.posts-list {
+  list-style: none;
+
+  li {
+    .date {
+      color: $color-silver;
+      font-size: 0.8em;
+      display: block;
+    }
+
+    .lang {
+      color: $color-silver;
+      font-size: 0.7em;
+      text-transform: uppercase;
+
+      a {
+        color: $color-silver;
+        text-decoration: none;
+
+        &:hover, &:active, &:visited {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+}
