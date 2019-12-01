@@ -19,4 +19,4 @@ My personal results summaries are a bit more detailed than Discourse's post form
 
 If I get time, I'll make a proper dashboard to view this information, to include options to investigate performance of different specs against a particular opposing deck.
 
-I'll soon be uploading *my personal summaries page*.
+For now, here is an uncleaned current version of [my personal summaries page](../html/Codex_matchups.html).
