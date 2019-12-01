@@ -57,10 +57,6 @@ enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/func
   # Check https://github.com/Track3/hermit#social-icons for more info.
 
   [[params.social]]
-    name = "email"
-    url = "markwebster204@yahoo.co.uk/"
-
-  [[params.social]]
     name = "stackoverflow"
     url = "https://stackexchange.com/users/3109765/accidental-statistician/"
 
