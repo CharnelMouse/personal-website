@@ -18,5 +18,3 @@ Since the game was balanced around monocolour decks, it's expected that multicol
 My personal results summaries are a bit more detailed than Discourse's post format allows: in particular, I have searchable tables of matchup predictions, since Rmarkdown has an implementation of [JavaScript's DataTables](https://www.datatables.net/). As such, I'm making this site the home for the model, so that I can make my personal summaries available to others.
 
 If I get time, I'll make a proper dashboard to view this information, to include options to investigate performance of different specs against a particular opposing deck.
-
-For now, here is an uncleaned current version of [my personal summaries page](../html/Codex_matchups.html).
