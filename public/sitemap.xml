@@ -33,7 +33,15 @@
   </url>
   
   <url>
+    <loc>/categories/</loc>
+  </url>
+  
+  <url>
     <loc>/model/</loc>
+  </url>
+  
+  <url>
+    <loc>/series/</loc>
   </url>
   
   <url>

@@ -5,70 +5,76 @@ title = "Mark Webster"
 theme = "hugo-coder"
 ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
 
-# enableGitInfo = true
-pygmentsCodefences  = true
-pygmentsUseClasses  = true
+paginate = 20
+canonifyurls = true
 
-rssLimit = 10  # Maximum number of items in the RSS feed.
-copyright = "This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License." # This message is only used by the RSS template.
-enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/functions/emojify/
+pygmentsstyle = "b2"
+pygmentscodefences = true
+pygmentscodefencesguesssyntax = true
 
-[author]
-  name = "Mark Webster"
+# disqusShortname = "yourdiscussshortname"
 
 [taxonomies]
+  category = "categories"
+  series = "series"
   tag = "tags"
-  # Categories are disabled by default.
 
 [params]
-  dateform        = "2 Jan, 2006"
-  dateformShort   = "2 Jan"
-  dateformNum     = "2006-01-02"
-  dateformNumTime = "2006-01-02 15:04 GMT"
+    author = "Mark Webster"
+    description = "Mark Webster's personal website"
+    keywords = "blog,developer,personal"
+    info = "The Accidental Statistician"
+    avatarurl = "images/personal-photo.jpg"
+#    footercontent = "Probability and Statistics, with some R programming."
 
-  # Metadata mostly used in document's head
-  # description = ""
-  # images = [""]
-  themeColor = "#494f5c"
+    dateformat = "January 2, 2006"
 
-  homeSubtitle = "The Accidental Statistician"
-  footerCopyright = ' &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>'
-  # bgImg = ""  # Homepage background-image URL
+    hideCredits = false
+    hideCopyright = false
 
-  # Prefix of link to the git commit detail page. GitInfo must be enabled.
-  # gitUrl = "https://github.com/username/repository/commit/"
+    # Git Commit in Footer, uncomment the line below to enable it.
+    # commit = "https://github.com/luizdepra/hugo-coder/tree/"
 
-  # Toggling this option needs to rebuild SCSS, requires Hugo extended version
-  justifyContent = false  # Set "text-align: justify" to `.content`.
+    rtl = false
 
+    # Specify light/dark colorscheme
+    # Supported values:
+    # "auto" (use preference set by browser)
+    # "dark" (dark background, light foreground)
+    # "light" (light background, dark foreground) (default)
+    colorscheme = "light"
+
+    # Series see also post count
+    maxSeeAlsoItems = 5
+
+    # Custom CSS
+    custom_css = []
+
+    # Custom JS
+    custom_js = []
+
+  # carryover from Hermit, this might not do anything
   relatedPosts = false  # Add a related content section to all single posts page
-
-  code_copy_button = true # Turn on/off the code-copy-button for code-fields
-
-  # Add custom css
-  # customCSS = ["css/foo.css", "css/bar.css"]
-
-  # Social Icons
-  # Check https://github.com/Track3/hermit#social-icons for more info.
 
   [[params.social]]
     name = "stackoverflow"
+    icon = "fab fa-stack-overflow"
+    weight = 1
     url = "https://stackexchange.com/users/3109765/accidental-statistician/"
 
   [[params.social]]
     name = "linkedin"
+    icon = "fab fa-linkedin"
+    weight = 2
     url = "https://www.linkedin.com/in/mark-webster-8542aa62/"
 
   [[params.social]]
     name = "github"
+    icon = "fab fa-github"
+    weight = 3
     url = "https://github.com/CharnelMouse/"
 
 [menu]
-
-#  [[menu.main]]
-#    name = "Posts"
-#    url = "posts/"
-#    weight = 10
 
   [[menu.main]]
     name = "About"
@@ -84,6 +90,11 @@ enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/func
     name = "Codex game model"
     url = "codex/"
     weight = 40
+
+#  [[menu.main]]
+#    name = "Posts"
+#    url = "posts/"
+#    weight = 50
 
   [[menu.main]]
     name = "Old blog"
