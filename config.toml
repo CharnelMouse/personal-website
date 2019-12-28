@@ -2,7 +2,7 @@ baseURL = "/"
 languageCode = "en-gb"
 defaultContentLanguage = "en"
 title = "Mark Webster"
-theme = "hermit"
+theme = "hugo-coder"
 ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
 
 # enableGitInfo = true
