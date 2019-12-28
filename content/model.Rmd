@@ -1,0 +1,311 @@
+---
+title: "Codex model"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+    number_sections: false
+    self_contained: yes
+    code_folding: none
+    df_print: paged
+author: "Mark Webster"
+date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
+---
+
+```{r, "setup", include=FALSE}
+library(data.table)
+library(stringr)
+library(DT)
+library(dplyr)
+library(ggplot2)
+library(rstan)
+library(codex)
+theme_codex <- theme_dark() +
+  theme(panel.border = element_rect(fill = NA, colour = "grey13"),
+        plot.background = element_rect(fill = "grey13", colour = "grey13"),
+        axis.ticks = element_line(colour = "white"),
+        strip.background = element_rect(fill = "grey13", colour = NA),
+        legend.background = element_rect(fill = "grey13", colour = NA),
+        text = element_text(colour = "white"),
+        axis.text = element_text(colour = "white"))
+theme_set(theme_codex)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, "set DT format"}
+theme_colour <- "#E8EEF2"
+theme_bg_colour <- "#494F5C"
+dt <- function(df, ...) {
+  formatStyle(datatable(df, ...), 
+              1:ncol(df), color = theme_colour, backgroundColor = theme_bg_colour)
+}
+```
+
+```{r, "check ess"}
+untidy_results <- readRDS("./model_files/vs_split.rds")
+parm_info <- as.data.table(summary(untidy_results)$summary, keep.rownames = "parameter")[parameter != "lp_", 
+                                                                                         c("parameter", "n_eff")]
+```
+
+Current model sample size is 4000. However, since we use a Markov Chain sampler, the samples are correlated: the effective sample size varies between different parameters, within the range (`r floor(min(parm_info$n_eff))`, `r ceiling(max(parm_info$n_eff))`).
+
+```{r, "read model results"}
+results <- readRDS("./model_files/tidy_vs_split.rds")
+```
+
+```{r, "read model samples"}
+sim <- results$tidy_results
+```
+
+```{r, "load data", message=FALSE}
+normal_matches <- all_matches[recorder == "charnel_mouse" & (is.element(victory, c("normal", "")) | is.na(victory))]
+mean_data <- prepare_match_data_for_modelling(normal_matches, starters, nicknames, mean = TRUE)
+attach(mean_data)
+starter_names <- starters
+spec_names <- specs
+starters <- codex::starters
+```
+
+```{r, "extract vs model matrices"}
+extract_vs_model_array <- function(sim) {
+  arr <- array(dim = c(nrow(sim$starter_vs_starter), St + Sp, St + Sp))
+  for (i in 1:dim(arr)[1]) {
+    arr[i, , ] <- rbind(cbind(sim$starter_vs_starter[i, , ],
+                              sim$starter_vs_spec[i, , ]), 
+                        cbind(sim$spec_vs_starter[i, , ],
+                              sim$spec_vs_spec[i, , ]))
+  }
+  dimnames(arr) <- list(NULL, c(starter_names, spec_names), c(starter_names, spec_names))
+  arr
+}
+vs_array <- extract_vs_model_array(sim)
+```
+
+# Posterior model performance
+
+```{r, "Matchup predictions for mean performance models"}
+won_effect <- 2*rep(w, each = nrow(sim$matchup)) - 1
+won <- w == 1
+match_names <- paste0(normal_matches$tournament,
+                      " Round ", normal_matches$round, 
+                      ", Game ", normal_matches$round_match_number,
+                      ": ", normal_matches$player1, " ", normal_matches$deck1,
+                      " vs. ",
+                      normal_matches$player2, " ", normal_matches$deck2, 
+                      ", won by ", normal_matches$victor)
+matchups_models <- (function(x) {
+  res <- colMeans(1/(1 + exp(-won_effect*x$matchup[, 1:M, drop = FALSE])))
+  data.table(`match name` = match_names,
+             `result probability` = res,
+             fairness = 1 - 2*abs(res - 1/2))
+})(sim)
+formatRound(dt(matchups_models, rownames = FALSE, filter = "top",
+               options = list(dom = "ltip"),
+               caption = "Recorded matches with model's expected probability of observed result. Fairness rates the fairness of the matchup, including players, between 0 and 1."), 
+            2:3, 2)
+```
+
+```{r, "Density plots for predictions for matches with simple decks"}
+ggplot(matchups_models, aes(.data$`result probability`)) +
+  geom_density() +
+  xlab("result probability") +
+  ggtitle("Post-hoc probability for given match results")
+ggplot(matchups_models, aes(.data$`result probability`)) +
+  geom_density() +
+  xlab("result probability") +
+  ggtitle("Post-hoc probability for given match results, by victor turn") +
+  facet_wrap(. ~ factor(ifelse(won, "P1 win", "P2 win")))
+matchups_models[, .(`result probability`, fairness,
+                    P1_win_prob = ifelse(won, 
+                                         `result probability`, 
+                                         1 - `result probability`),
+                    rounded = round(ifelse(won, 
+                                           `result probability`, 
+                                           1 - `result probability`),
+                                    1),
+                    win = won)
+                ][, .(rate = ifelse(.N == 0, NA, mean(win)),
+                      prob = ifelse(.N == 0, NA, mean(P1_win_prob))),
+                  by = c("rounded")] %>% 
+  ggplot(aes(.data$prob, .data$rate)) + 
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1) + 
+  xlab("mean forecast p1 win probability") + 
+  ylab("observed p1 win rate") + 
+  ggtitle("P1 win rate compared to predicted win probability grouped to nearest 10%")
+```
+
+If the model predicted matches by saying the most likely winner would win, its performance on the above matches, which were used to fit it, would be `r sum(matchups_models[["result probability"]] > 0.5)` out of `r nrow(matchups_models)` (`r round(mean(matchups_models[["result probability"]] > 0.5)*100, 1)`%). Since it gives a probability of each player winning, we can use proper scoring rules instead (the closer to zero, the better):
+
+```{r, "model scores"}
+model_log_scores <- matchups_models[, .(`log score` = -log(`result probability`), 
+                                        `Brier score` = (1 - `result probability`)^2)
+                                    ][, .(model = c("predict every match as 5-5", "current model"), 
+                                          `log score` = c(log(2), mean(`log score`)), 
+                                          `Brier score` = c(1/4, mean(`Brier score`)))]
+formatRound(dt(model_log_scores, rownames = FALSE, options = list(dom = "t")), 2:3, 2)
+```
+
+# Player skill
+
+Player skills are given as their (additive) effect on their log-odds of winning a match. Skill is currently assumed to not change over time, so given skill levels for long-absent players are narrowly-distributed compared to how certain we'd really be about their current skill level. It'll also favour players who were veterans before the earliest recorded match, because the period where they learned the ropes is not included in their match records.
+
+```{r, "extract vs split models player skills"}
+vs_sim_skills <- melt(as.data.table(sim$player), id.vars = character(0), 
+                      variable.name = "player", value.name = "player skill")[, .(`player skill`, mean = mean(`player skill`)), 
+                                                                             by = "player"]
+vs_split_player_levels <- vs_sim_skills[order(mean), unique(player)]
+
+vs_skill <- vs_sim_skills[, .(player, `player skill`, mean, model = "Versus model")]
+vs_skill_by_forum_skill <- vs_skill[, .(player = factor(player, vs_split_player_levels), `player skill`, mean, model)]
+```
+
+```{r, "plot vs models player skills", fig.height=10, warning=FALSE}
+plot_player_skill(vs_skill_by_forum_skill[is.element(player, players)], "overall", waiver()) +
+  ylim(-5, 5)
+```
+
+```{r, "plot probability player is best", fig.height=10}
+prob_largest_skill <- get_probability_largest(sim$player)
+plot_probability_largest(prob_largest_skill) +
+  xlab("player") +
+  ylab("probability best player")
+```
+
+```{r, "player skill table"}
+formatRound(dt(merge(vs_sim_skills[, .(mean = mean[1]), by = "player"
+                                   ][, .(player = as.character(player), `mean skill` = mean)],
+                     as.data.table(prob_largest_skill)[, .(player = effect, `prob. best (n = 4000)` = `effect size`)],
+                     on = "player", sort = FALSE),
+               rownames = FALSE, filter = "top", options = list(dom = "ltip")),
+            2, 3)
+```
+
+# Opposed component effects
+
+Decks are treated in opposing pairs: P1 starter versus P2 starter, P1 starter versus each P2 spec, and so on. Each match has 16 such pairs. Each pair's effect is given as its additive effect on the log-odds of a player 1 victory. The component's effects are added to given overall matchup between the decks, before accounting for player skill levels.
+
+Note that these pair effects are *not* direct appraisals of how the components fare against each other. For each, the Green vs. Black effect doesn't assess how those two decks decks match up against each other, it assesses how decks using those starter decks *tend* to match up against each other. Similarly, Blood vs. Future doesn't, directly assess how those two specs compete at, say, Tech II, because I don't record tech building choices. Instead, it shows how P1 decks including Blood tend to fare against P2 decks including Future. Note that this also ignores interactions between different pairs completely.
+
+To examine the matchup between two particular decks, add their components in the relevant Deck components column. The overall matchup is then given below the table, as both the log-odds and the probability of a player 1 victory. Individual pair effects are given in the displayed table rows.
+
+Currently I've not added the players in the same table to account for skill effects. In the meantime, since player skill tends to have a larger effect than the deck matchup, don't compare the deck matchups to your own match outcomes too strictly, unless you can manually add the effects from the player table (remember to subtract the P2 effect, not add it).
+
+```{r, "simple versus table"}
+vs_split_table <- as.data.table(vs_array)[, .(sample = V1, 
+                                              `P1 component` = factor(V2, c(starter_names, spec_names)),
+                                              `P2 component` = factor(V3, c(starter_names, spec_names)),
+                                              value)
+                                          ][, .(mean = mean(value)),
+                                            by = c("P1 component", "P2 component")
+                                            ][order(`P1 component`, `P2 component`)]
+vs_sketch <- htmltools::withTags(table(class = "display",
+                                       thead(tr(th(colspan = 2, "Deck components"),
+                                                th(rowspan = 2, "Mean Player 1 win log-odds effect")),
+                                             tr(lapply(c("Player 1", "Player 2"), th))),
+                                       tfoot(tr(th("Player 1"), th("Player 2"), th(0)))))
+vs_split_JS_code <- "function(row, data, start, end, display) {
+  var api = this.api(), data;
+  total_mean = api.column(2, {search: 'applied'}).data().reduce( function(a, b) { return a + b}, 0);
+  $( api.column(2).footer() ).html('Total: ' + total_mean.toFixed(2) + '; P1 win prob: ' + (100/(1+Math.exp(-total_mean))).toFixed(1) + '%')
+  }"
+dt(vs_split_table, rownames = FALSE, filter = "top", container = vs_sketch, 
+   options = list(footerCallback = JS(vs_split_JS_code))) %>% 
+  formatRound(3, digits = 3)
+```
+
+# Monocolour matchups
+
+Since we're most interested in whether monocolour decks are reasonably balanced, here are matchup results for the monocolour decks. The three black vertical lines in each plot facet show the matchup quartiles.
+
+```{r, "extract monodecks"}
+mononames <- sort(paste0("Mono", setdiff(starters$starter, "Neutral")))
+monobits <- prepare_deck_names_for_modelling(mononames, starters, nicknames)
+```
+
+```{r, "extract vs split model monocolour matchups"}
+extract_mono_matchups <- function(arr) {
+  mono_matchups <- array(dim = c(nrow(arr), length(mononames), length(mononames)), 
+                         dimnames = c(list(NULL), rep(list(mononames), 2)))
+  for (i in 1:length(mononames)) {
+    for (j in 1:length(mononames)) {
+      mono_matchups[, i, j] <- apply(arr[, 
+                                         match(monobits[i, ], c(starter_names, spec_names)), 
+                                         match(monobits[j, ], c(starter_names, spec_names))],
+                                     1, sum)
+    }
+  }
+  mono_matchups <- melt(as.data.table(as.data.frame(mono_matchups)), 
+                        measure.vars = as.vector(outer(mononames, mononames, paste, sep = ".")), 
+                        variable.name = "decks", value.name = "matchup"
+  )[, c(lapply(tstrsplit(decks, "\\.", names = c("P1 deck", "P2 deck")), factor, mononames), 
+        list(matchup = matchup, prob_matchup = 1/(1 + exp(-matchup))))
+    ][, c(.SD, list(mean = mean(matchup), prob_mean = mean(prob_matchup))), 
+      by = c("P1 deck", "P2 deck")]
+  mono_matchups
+}
+vs_monos <- extract_mono_matchups(vs_array)
+```
+
+```{r, make vs model monocolour matchup plots}
+plot_mono <- function(mono) {
+  ggplot(mono, aes(x = "", y = .data$prob_matchup, fill = .data$prob_mean)) +
+    geom_violin(draw_quantiles = c(1/4, 1/2, 3/4)) +
+    coord_flip() +
+    xlab(NULL) +
+    ylab("matchup") +
+    scale_y_continuous(breaks = seq.int(0, 10)/10, labels = seq.int(0, 10)) +
+    facet_grid(`P1 deck` ~ `P2 deck`) +
+    scale_fill_viridis_c(option = "B", guide = FALSE)
+}
+plot_mono(vs_monos)
+```
+
+```{r, "print vs model monocolour matchups in order"}
+vs_monos_print <- vs_monos[, .(`P1 win probability` = mean(1/(1 + exp(-matchup)))), 
+                           by = c("P1 deck", "P2 deck")
+                           ][, .(`P1 deck`, `P2 deck`, `P1 win probability`,
+                                 matchup = paste(format(round(`P1 win probability`, 2)*10, nsmall = 1),
+                                                 format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
+                                                 sep = "-"),
+                                 fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
+formatRound(dt(vs_monos_print, rownames = FALSE, filter = "top"), c(3, 5), c(3, 2))
+```
+
+# Model variances
+
+Each type of component in the model has a different variance in the effect; inference for the variances is also done in the model simulation. The below plot shows the variances for each component type, scaled by how many such components go into a matchup, i.e. two player skill components, one starter vs. starter component, six starter vs. spec / spec vs. starter components, and nine spec vs. spec components.
+
+```{r, "variance plot functions"}
+get_variances <- function(sim) {
+  data.table(`player skill` = 2 * as.numeric(sim$sd_player)^2,
+             `starter vs. starter` = as.numeric(sim$sd_starter_vs_starter)^2,
+             `starter vs. spec` = 3 * as.numeric(sim$sd_starter_vs_spec)^2,
+             `spec vs. spec` = 9 * as.numeric(sim$sd_spec_vs_spec)^2)[, 
+                                                                      c(.SD,
+                                                                        .(`total deck` = 
+                                                                            `starter vs. starter` +
+                                                                            `starter vs. spec` +
+                                                                            `spec vs. spec`))
+                                                                      ][,
+                                                                        c(.SD,
+                                                                          .(`player/deck ratio` =
+                                                                              `player skill`/`total deck`))] %>% 
+    melt(id.vars = character(0), variable.name = "type")
+}
+plot_variances <- function(variances) {
+  ggplot(variances, aes(x = .data$type, y = .data$value)) +
+    geom_boxplot() +
+    ggtitle("Component variances, scaled by number of instances") +
+    xlab("type") +
+    ylab("variance")
+}
+```
+
+```{r, "plot versus model variances"}
+plot_variances(get_variances(sim))
+```
+
+Total player skill effects on match outcome vary about twice as much as total deck effects, on average. Informally, this means the players are about twice as important as the decks.

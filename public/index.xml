@@ -67,5 +67,15 @@ Official pages:
  Codex page at Sirlin Games, including links to articles on the game&#39;s design at David Sirlin&#39;s design blog. Official Sirlin Games forum  The game is played with decks consisting of three different &amp;ldquo;specs&amp;rdquo;.</description>
     </item>
     
+    <item>
+      <title>Codex model</title>
+      <link>/model/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>/model/</guid>
+      <description>Current model sample size is 4000. However, since we use a Markov Chain sampler, the samples are correlated: the effective sample size varies between different parameters, within the range (1036, 8652).
+Posterior model performance{&#34;x&#34;:{&#34;filter&#34;:&#34;top&#34;,&#34;filterHTML&#34;:&#34;\n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n&#34;</description>
+    </item>
+    
   </channel>
 </rss>
