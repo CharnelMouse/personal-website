@@ -73,7 +73,7 @@ Official pages:
       
       <guid>/model/</guid>
       <description>Simulation configurationCurrent model sample size is 4000. However, since we use a Markov Chain sampler, the samples are correlated: the effective sample size varies between different parameters, within the range (1036, 8652).
-Posterior model performance{&#34;x&#34;:{&#34;filter&#34;:&#34;top&#34;,&#34;filterHTML&#34;:&#34;\n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n&#34;</description>
+Posterior model performance{&#34;x&#34;:{&#34;url&#34;:&#34;/model_files/figure-html//widgets/widget_Matchup predictions for mean performance models.html&#34;,&#34;options&#34;:{&#34;xdomain&#34;:&#34;*&#34;,&#34;allowfullscreen&#34;:false,&#34;lazyload&#34;:false}},&#34;evals&#34;:[],&#34;jsHooks&#34;:[]}If the model predicted matches by saying the most likely winner would win, its performance on the above matches, which were used to fit it, would be 345 out of 403 (85.</description>
     </item>
     
   </channel>

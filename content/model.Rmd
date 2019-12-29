@@ -18,18 +18,12 @@ date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
 library(data.table)
 library(stringr)
 library(DT)
+library(widgetframe)
 library(dplyr)
 library(ggplot2)
 library(rstan)
 library(codex)
 knitr::opts_chunk$set(echo = FALSE)
-```
-
-```{r, "use custom datatable function to counter some of theme-induced settings"}
-dt <- function(df, ...) {
-  formatStyle(datatable(df, ...),
-              1:ncol(df), border = "1px solid #dddddd")
-}
 ```
 
 # Simulation configuration
@@ -92,10 +86,11 @@ matchups_models <- (function(x) {
              `result probability` = res,
              fairness = 1 - 2*abs(res - 1/2))
 })(sim)
-formatRound(dt(matchups_models, rownames = FALSE, filter = "top",
-               options = list(dom = "ltip"),
-               caption = "Recorded matches with model's expected probability of observed result. Fairness rates the fairness of the matchup, including players, between 0 and 1."), 
-            2:3, 2)
+frameWidget(formatRound(datatable(matchups_models, rownames = FALSE, filter = "top",
+                                  options = list(dom = "ltip"),
+                                  caption = "Recorded matches with model's expected probability of observed result. Fairness rates the fairness of the matchup, including players, between 0 and 1."), 
+                        2:3, 2),
+            height = "100%")
 ```
 
 ```{r, "Density plots for predictions for matches with simple decks"}
@@ -136,7 +131,10 @@ model_log_scores <- matchups_models[, .(`log score` = -log(`result probability`)
                                     ][, .(model = c("predict every match as 5-5", "current model"), 
                                           `log score` = c(log(2), mean(`log score`)), 
                                           `Brier score` = c(1/4, mean(`Brier score`)))]
-formatRound(dt(model_log_scores, rownames = FALSE, options = list(dom = "t")), 2:3, 2)
+frameWidget(formatRound(datatable(model_log_scores, rownames = FALSE, 
+                                  options = list(dom = "t")), 
+                        2:3, 2),
+            height = "100%")
 ```
 
 # Player skill
@@ -166,12 +164,13 @@ plot_probability_largest(prob_largest_skill) +
 ```
 
 ```{r, "player skill table"}
-formatRound(dt(merge(vs_sim_skills[, .(mean = mean[1]), by = "player"
-                                   ][, .(player = as.character(player), `mean skill` = mean)],
-                     as.data.table(prob_largest_skill)[, .(player = effect, `prob. best (n = 4000)` = `effect size`)],
-                     on = "player", sort = FALSE),
-               rownames = FALSE, filter = "top", options = list(dom = "ltip")),
-            2, 3)
+frameWidget(formatRound(datatable(merge(vs_sim_skills[, .(mean = mean[1]), by = "player"
+                                                      ][, .(player = as.character(player), `mean skill` = mean)],
+                                        as.data.table(prob_largest_skill)[, .(player = effect, `prob. best (n = 4000)` = `effect size`)],
+                                        on = "player", sort = FALSE),
+                                  rownames = FALSE, filter = "top", options = list(dom = "ltip")),
+                        2, 3),
+            height = "100%")
 ```
 
 # Opposed component effects
@@ -202,9 +201,10 @@ vs_split_JS_code <- "function(row, data, start, end, display) {
   total_mean = api.column(2, {search: 'applied'}).data().reduce( function(a, b) { return a + b}, 0);
   $( api.column(2).footer() ).html('Total: ' + total_mean.toFixed(2) + '; P1 win prob: ' + (100/(1+Math.exp(-total_mean))).toFixed(1) + '%')
   }"
-dt(vs_split_table, rownames = FALSE, filter = "top", container = vs_sketch, 
-   options = list(footerCallback = JS(vs_split_JS_code))) %>% 
-  formatRound(3, digits = 3)
+frameWidget(datatable(vs_split_table, rownames = FALSE, filter = "top", container = vs_sketch, 
+                      options = list(footerCallback = JS(vs_split_JS_code))) %>% 
+              formatRound(3, digits = 3),
+            height = "100%")
 ```
 
 # Monocolour matchups
@@ -262,7 +262,9 @@ vs_monos_print <- vs_monos[, .(`P1 win probability` = mean(1/(1 + exp(-matchup))
                                                  format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
                                                  sep = "-"),
                                  fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
-formatRound(dt(vs_monos_print, rownames = FALSE, filter = "top"), c(3, 5), c(3, 2))
+frameWidget(formatRound(datatable(vs_monos_print, rownames = FALSE, filter = "top"), 
+                        c(3, 5), c(3, 2)),
+            height = "100%")
 ```
 
 # Model variances
