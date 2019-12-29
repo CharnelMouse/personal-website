@@ -87,7 +87,7 @@ matchups_models <- (function(x) {
              fairness = 1 - 2*abs(res - 1/2))
 })(sim)
 frameWidget(formatRound(datatable(matchups_models, rownames = FALSE, filter = "top",
-                                  options = list(dom = "ltip"),
+                                  options = list(dom = "tip"),
                                   caption = "Recorded matches with model's expected probability of observed result. Fairness rates the fairness of the matchup, including players, between 0 and 1."), 
                         2:3, 2),
             height = "100%")
@@ -168,7 +168,7 @@ frameWidget(formatRound(datatable(merge(vs_sim_skills[, .(mean = mean[1]), by = 
                                                       ][, .(player = as.character(player), `mean skill` = mean)],
                                         as.data.table(prob_largest_skill)[, .(player = effect, `prob. best (n = 4000)` = `effect size`)],
                                         on = "player", sort = FALSE),
-                                  rownames = FALSE, filter = "top", options = list(dom = "ltip")),
+                                  rownames = FALSE, filter = "top", options = list(dom = "tip")),
                         2, 3),
             height = "100%")
 ```
@@ -202,7 +202,7 @@ vs_split_JS_code <- "function(row, data, start, end, display) {
   $( api.column(2).footer() ).html('Total: ' + total_mean.toFixed(2) + '; P1 win prob: ' + (100/(1+Math.exp(-total_mean))).toFixed(1) + '%')
   }"
 frameWidget(datatable(vs_split_table, rownames = FALSE, filter = "top", container = vs_sketch, 
-                      options = list(footerCallback = JS(vs_split_JS_code))) %>% 
+                      options = list(dom = "ftip", pageLength = 16, footerCallback = JS(vs_split_JS_code))) %>% 
               formatRound(3, digits = 3),
             height = "100%")
 ```
@@ -262,7 +262,8 @@ vs_monos_print <- vs_monos[, .(`P1 win probability` = mean(1/(1 + exp(-matchup))
                                                  format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
                                                  sep = "-"),
                                  fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
-frameWidget(formatRound(datatable(vs_monos_print, rownames = FALSE, filter = "top"), 
+frameWidget(formatRound(datatable(vs_monos_print, rownames = FALSE, filter = "top",
+                                  options = list(dom = "ftip")), 
                         c(3, 5), c(3, 2)),
             height = "100%")
 ```
