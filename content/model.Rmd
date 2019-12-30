@@ -2,10 +2,6 @@
 title: "Codex model"
 output:
   html_document:
-    toc: true
-    toc_depth: 2
-    toc_float:
-      collapsed: false
     number_sections: false
     self_contained: yes
     code_folding: none
