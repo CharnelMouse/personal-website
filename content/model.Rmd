@@ -244,8 +244,16 @@ Greedy:
 mono_matrix <- as.matrix(dcast(unique(vs_monos[, c("P1", "P2", "prob_mean")]),
                                P1 ~ P2, value.var = "prob_mean"), 
                          rownames = "P1")
-frameWidget(formatRound(datatable(get_nash_equilibria(mono_matrix), options = list(dom = "t"), rownames = FALSE), 
-                        2:8, 3), 
+greedy_mono_nash <- get_nash_equilibria(mono_matrix)
+```
+
+```{r, "greedy monocolour Nash win"}
+frameWidget(formatRound(datatable(print_nash(greedy_mono_nash), options = list(dom = "t"), rownames = FALSE), 2, 3), 
+height = "100%")
+```
+
+```{r, "greedy monocolour Nash details"}
+frameWidget(DT_nash(greedy_mono_nash, round = 3, options = list(dom = "t")), 
             height = "100%")
 ```
 
@@ -255,9 +263,18 @@ Calibrated:
 vs_mono_array <- get_matchup_array(results, mononames)
 mono_stoch_nash <- get_nash_equilibria(vs_mono_array)
 mono_mean_nash <- apply(mono_stoch_nash, 1:2, mean)
-frameWidget(formatRound(datatable(as.data.table(mono_mean_nash, keep.rownames = "Player"), options = list(dom = "t"),
-                                  rownames = FALSE), 
-                        2:8, 3), 
+calibrated_mono_nash <- as.data.table(mono_mean_nash, keep.rownames = "Player")[, c(.(Player = factor(Player, 
+                                                                                                      c("P1", "P2", "Both"))), 
+                                                                                    .SD), 
+                                                                                .SDcols = dimnames(mono_stoch_nash)[[2]]]
+```
+
+```{r, "calibrated monocolour Nash win"}
+frameWidget(formatRound(datatable(print_nash(calibrated_mono_nash), options = list(dom = "t"), rownames = FALSE), 2, 3), height = "100%")
+```
+
+```{r, "calibrated monocolour Nash details"}
+frameWidget(DT_nash(calibrated_mono_nash, round = 3, options = list(dom = "t")), 
             height = "100%")
 ```
 
