@@ -51,21 +51,6 @@ spec_names <- specs
 starters <- codex::starters
 ```
 
-```{r, "extract vs model matrices"}
-extract_vs_model_array <- function(sim) {
-  arr <- array(dim = c(nrow(sim$starter_vs_starter), St + Sp, St + Sp))
-  for (i in 1:dim(arr)[1]) {
-    arr[i, , ] <- rbind(cbind(sim$starter_vs_starter[i, , ],
-                              sim$starter_vs_spec[i, , ]), 
-                        cbind(sim$spec_vs_starter[i, , ],
-                              sim$spec_vs_spec[i, , ]))
-  }
-  dimnames(arr) <- list(NULL, c(starter_names, spec_names), c(starter_names, spec_names))
-  arr
-}
-vs_array <- extract_vs_model_array(sim)
-```
-
 ```{r, "Matchup predictions for mean performance models"}
 won_effect <- 2*rep(w, each = nrow(sim$matchup)) - 1
 won <- w == 1
@@ -76,12 +61,10 @@ match_names <- paste0(normal_matches$tournament,
                       " vs. ",
                       normal_matches$player2, " ", normal_matches$deck2, 
                       ", won by ", normal_matches$victor)
-matchups_models <- (function(x) {
-  res <- colMeans(1/(1 + exp(-won_effect*x$matchup[, 1:M, drop = FALSE])))
-  data.table(`match name` = match_names,
-             `result probability` = res,
-             fairness = 1 - 2*abs(res - 1/2))
-})(sim)
+match_res <- colMeans(1/(1 + exp(-won_effect*sim$matchup[, 1:M, drop = FALSE])))
+matchups_models <- data.table(`match name` = match_names,
+                              `result probability` = match_res,
+                              fairness = 1 - 2*abs(match_res - 1/2))
 frameWidget(formatRound(datatable(matchups_models, rownames = FALSE, filter = "top",
                                   options = list(dom = "tip"),
                                   caption = "Recorded matches with model's expected probability of observed result. Fairness rates the fairness of the matchup, including players, between 0 and 1."), 
@@ -127,10 +110,7 @@ model_log_scores <- matchups_models[, .(`log score` = -log(`result probability`)
                                     ][, .(model = c("predict every match as 5-5", "current model"), 
                                           `log score` = c(log(2), mean(`log score`)), 
                                           `Brier score` = c(1/4, mean(`Brier score`)))]
-frameWidget(formatRound(datatable(model_log_scores, rownames = FALSE, 
-                                  options = list(dom = "t")), 
-                        2:3, 2),
-            height = "100%")
+frameWidget(formatRound(datatable(model_log_scores, options = list(dom = "t"), rownames = FALSE), 2, 3), height = "100%")
 ```
 
 # Player skill
@@ -179,6 +159,10 @@ To examine the matchup between two particular decks, add their components in the
 
 Currently I've not added the players in the same table to account for skill effects. In the meantime, since player skill tends to have a larger effect than the deck matchup, don't compare the deck matchups to your own match outcomes too strictly, unless you can manually add the effects from the player table (remember to subtract the P2 effect, not add it).
 
+```{r, "extract vs model matrices"}
+vs_array <- extract_vs_model_array(results)
+```
+
 ```{r, "simple versus table"}
 vs_split_table <- as.data.table(vs_array)[, .(sample = V1, 
                                               `P1 component` = factor(V2, c(starter_names, spec_names)),
@@ -213,47 +197,17 @@ monobits <- prepare_deck_names_for_modelling(mononames, starters, nicknames)
 ```
 
 ```{r, "extract vs split model monocolour matchups"}
-extract_mono_matchups <- function(arr) {
-  mono_matchups <- array(dim = c(nrow(arr), length(mononames), length(mononames)), 
-                         dimnames = c(list(NULL), rep(list(mononames), 2)))
-  for (i in 1:length(mononames)) {
-    for (j in 1:length(mononames)) {
-      mono_matchups[, i, j] <- apply(arr[, 
-                                         match(monobits[i, ], c(starter_names, spec_names)), 
-                                         match(monobits[j, ], c(starter_names, spec_names))],
-                                     1, sum)
-    }
-  }
-  mono_matchups <- melt(as.data.table(as.data.frame(mono_matchups)), 
-                        measure.vars = as.vector(outer(mononames, mononames, paste, sep = ".")), 
-                        variable.name = "decks", value.name = "matchup"
-  )[, c(lapply(tstrsplit(decks, "\\.", names = c("P1 deck", "P2 deck")), factor, mononames), 
-        list(matchup = matchup, prob_matchup = 1/(1 + exp(-matchup))))
-    ][, c(.SD, list(mean = mean(matchup), prob_mean = mean(prob_matchup))), 
-      by = c("P1 deck", "P2 deck")]
-  mono_matchups
-}
-vs_monos <- extract_mono_matchups(vs_array)
+vs_monos <- get_matchups(results, mononames)
 ```
 
 ```{r, make vs model monocolour matchup plots}
-plot_mono <- function(mono) {
-  ggplot(mono, aes(x = "", y = .data$prob_matchup, fill = .data$prob_mean)) +
-    geom_violin(draw_quantiles = c(1/4, 1/2, 3/4)) +
-    coord_flip() +
-    xlab(NULL) +
-    ylab("matchup") +
-    scale_y_continuous(breaks = seq.int(0, 10)/10, labels = seq.int(0, 10)) +
-    facet_grid(`P1 deck` ~ `P2 deck`) +
-    scale_fill_viridis_c(option = "B", guide = FALSE)
-}
-plot_mono(vs_monos)
+plot_matchup_samples(vs_monos)
 ```
 
 ```{r, "print vs model monocolour matchups in order"}
-vs_monos_print <- vs_monos[, .(`P1 win probability` = mean(1/(1 + exp(-matchup)))), 
-                           by = c("P1 deck", "P2 deck")
-                           ][, .(`P1 deck`, `P2 deck`, `P1 win probability`,
+vs_monos_print <- vs_monos[, .(`P1 win probability` = mean(prob_matchup)), 
+                           by = c("P1", "P2")
+                           ][, .(P1, P2, `P1 win probability`,
                                  matchup = paste(format(round(`P1 win probability`, 2)*10, nsmall = 1),
                                                  format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
                                                  sep = "-"),
@@ -268,34 +222,115 @@ frameWidget(formatRound(datatable(vs_monos_print, rownames = FALSE, filter = "to
 
 Each type of component in the model has a different variance in the effect; inference for the variances is also done in the model simulation. The below plot shows the variances for each component type, scaled by how many such components go into a matchup, i.e. two player skill components, one starter vs. starter component, six starter vs. spec / spec vs. starter components, and nine spec vs. spec components.
 
-```{r, "variance plot functions"}
-get_variances <- function(sim) {
-  data.table(`player skill` = 2 * as.numeric(sim$sd_player)^2,
-             `starter vs. starter` = as.numeric(sim$sd_starter_vs_starter)^2,
-             `starter vs. spec` = 3 * as.numeric(sim$sd_starter_vs_spec)^2,
-             `spec vs. spec` = 9 * as.numeric(sim$sd_spec_vs_spec)^2)[, 
-                                                                      c(.SD,
-                                                                        .(`total deck` = 
-                                                                            `starter vs. starter` +
-                                                                            `starter vs. spec` +
-                                                                            `spec vs. spec`))
-                                                                      ][,
-                                                                        c(.SD,
-                                                                          .(`player/deck ratio` =
-                                                                              `player skill`/`total deck`))] %>% 
-    melt(id.vars = character(0), variable.name = "type")
-}
-plot_variances <- function(variances) {
-  ggplot(variances, aes(x = .data$type, y = .data$value)) +
-    geom_boxplot() +
-    ggtitle("Component variances, scaled by number of instances") +
-    xlab("type") +
-    ylab("variance")
-}
-```
-
 ```{r, "plot versus model variances"}
-plot_variances(get_variances(sim))
+variance_info <- get_variances(sim)
+plot_variances(variance_info)
 ```
 
-Total player skill effects on match outcome vary about twice as much as total deck effects, on average. Informally, this means the players are about twice as important as the decks.
+On average, total player skill effects on match outcome are about `r round(variance_info[type == "player/deck ratio", mean(value)], 2)` as variable as total deck effects. This is a rough measure of how important to a match the players are, compared to the decks.
+
+# Nash equilibria
+
+For a set of decks, we can take the matchup samples, and determine a Nash equilibrium for choosing which deck to use from that set. This can be done in two ways:
+
+- Greedy: Find the Nash equilibrium of the mean matchups. This picks a strategy based on taking the model's predicted matchups as correct. Using it to choose a deck is equivalent to always choosing the arm currently considered most likely to be the best in a multi-armed bandit problem. For the above plot of each player's probability of being the best player, this would always state that the most-likely-best player is the best.
+- Calibrated: Find the Nash equilibria for each sample of matchups, and take the mean equilibrium. This takes proper account of the model's uncertainty over the matchups. Using it to choose a deck is equivalent to Thompson sampling: for player skills, this would randomly choose a player to state as the best, weighted by the players' probabilities of being the best. This approach is better calibrated.
+
+## Monocolour
+
+Greedy:
+
+```{r, "versus model equilibrium"}
+mono_matrix <- as.matrix(dcast(unique(vs_monos[, c("P1", "P2", "prob_mean")]),
+                               P1 ~ P2, value.var = "prob_mean"), 
+                         rownames = "P1")
+frameWidget(formatRound(datatable(get_nash_equilibria(mono_matrix), options = list(dom = "t"), rownames = FALSE), 
+                        2:8, 3), 
+            height = "100%")
+```
+
+Calibrated:
+
+```{r, "probabilistic versus model equilibrium"}
+vs_mono_array <- get_matchup_array(results, mononames)
+mono_stoch_nash <- get_nash_equilibria(vs_mono_array)
+mono_mean_nash <- apply(mono_stoch_nash, 1:2, mean)
+frameWidget(formatRound(datatable(as.data.table(mono_mean_nash, keep.rownames = "Player"), options = list(dom = "t"),
+                                  rownames = FALSE), 
+                        2:8, 3), 
+            height = "100%")
+```
+
+As would be expected, the chance of winning before determining play order is 50%. Black is dominant, as expected given that it's known as a strong faction. The only exception is when known to be going first, where Red plays a significant role. However, this is less clear-cut in the calibrated results: even Blue, considered weak due to an especially lopsided matchup against Black, hasn't been completely cut out.
+
+## All recorded decks
+
+```{r, "construct all possible mono/multicolour/draftable decks"}
+possible_spec_trios <- utils::combn(codex::starters$spec, 3L, paste, collapse = "/")
+possible_decks <- expand.grid(possible_spec_trios, unique(codex::starters$starter)) %>% 
+  apply(1, paste, collapse = "/") %>% 
+  standardise_deck_name(codex::starters)
+possible_normal_decks <- possible_decks[str_count(possible_decks, "/") == 2L]
+possible_deck_names <- standardise_deck_name(possible_decks, codex::starters, codex::nicknames)
+possible_normal_deck_names <- standardise_deck_name(possible_normal_decks, codex::starters, codex::nicknames)
+
+possible_components <- prepare_deck_names_for_modelling(possible_deck_names,
+                                                        codex::starters, codex::nicknames)
+possible_normal_components <- prepare_deck_names_for_modelling(possible_normal_deck_names,
+                                                               codex::starters, codex::nicknames)
+# standard decks would take about 30 hours with the current function, so here's a smaller case.
+used_decks <- unique(c(matches$deck1[!is.na(matches$deck1)],
+                       matches$deck2[!is.na(matches$deck2)]))
+used_normal_decks <- used_decks[str_count(used_decks, "/") != 3]
+test_samples <- get_matchup_array(results, used_normal_decks)
+test_matrix <- apply(test_samples, 2:3, mean)
+```
+
+The current way I calculate Nash equilbria makes computing them for all `r length(possible_normal_deck_names)` possible standard multicolour decks infeasible. I'm working on fixing this. In the meantime, here are the Nash equilibria for all `r length(used_normal_decks)` such decks used in a recorded tournament match.
+
+Nash equilibria are given for three types of player: `P1` when known to be going first, `P2` when known to be going second, and `Both` for the more common case where the deck is chosen before a coin flip to determine who goes first.
+
+```{r, "get used normal deck Nash equilibria"}
+test_nash <- get_nash_equilibria(test_matrix)
+test_stoch_nash <- readRDS("./model_files/nash_samples_vs_split.rds")
+test_stoch_mean_nash <- as.data.table(apply(test_stoch_nash, 1:2, mean), 
+                                      keep.rownames = "Player")[, c(.(Player = factor(Player, 
+                                                                                      c("P1", "P2", "Both"))), 
+                                                                    .SD), 
+                                                                .SDcols = dimnames(test_stoch_nash)[[2]]]
+```
+
+### Win probability
+
+Greedy:
+
+```{r, "greedy possibly normal Nash datatable win probabilities"}
+frameWidget(formatRound(datatable(print_nash(test_nash), options = list(dom = "t"), rownames = FALSE), 2, 3), height = "100%")
+```
+
+Calibrated:
+
+```{r, "calibrated possibly normal Nash datatable win probabilities"}
+frameWidget(formatRound(datatable(print_nash(test_stoch_mean_nash), options = list(dom = "t"), rownames = FALSE), 2, 3), 
+            height = "100%")
+```
+
+The first player seems to be more advantaged than in the monocolour game, though not by much.
+
+### Non-zero deck weights
+
+Greedy:
+
+```{r, "greedy possibly normal Nash datatable"}
+frameWidget(DT_nash(test_nash, options = list(dom = "tip")),
+            height = "100%")
+```
+
+Calibrated:
+
+```{r, "calibrated possibly normal Nash datatable"}
+frameWidget(DT_nash(test_stoch_mean_nash, round = 4, options = list(dom = "tip")),
+            height = "100%")
+```
+
+`r if(ncol(test_stoch_mean_nash) == 2L + length(used_normal_decks)) "Notably, no decks have been eliminated in the calibrated version, so there is still a lot of uncertainty."`
