@@ -110,7 +110,7 @@ model_log_scores <- matchups_models[, .(`log score` = -log(`result probability`)
                                     ][, .(model = c("predict every match as 5-5", "current model"), 
                                           `log score` = c(log(2), mean(`log score`)), 
                                           `Brier score` = c(1/4, mean(`Brier score`)))]
-frameWidget(formatRound(datatable(model_log_scores, options = list(dom = "t"), rownames = FALSE), 2, 3), height = "100%")
+frameWidget(formatRound(datatable(model_log_scores, options = list(dom = "t"), rownames = FALSE), 2:3, 3), height = "100%")
 ```
 
 # Player skill
