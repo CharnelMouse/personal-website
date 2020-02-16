@@ -7,7 +7,7 @@ output:
     code_folding: none
     df_print: paged
 author: "Mark Webster"
-date: 'Last modified: 17 Jan 2020'
+date: 'Last modified: 16 Feb 2020'
 ---
 
 <script src="/rmarkdown-libs/htmlwidgets/htmlwidgets.js"></script>
@@ -25,16 +25,53 @@ date: 'Last modified: 17 Jan 2020'
 <script type="application/json" data-for="htmlwidget-1">{"x":{"url":"/model_files/figure-html//widgets/widget_Matchup predictions for mean performance models.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
 <p><img src="/model_files/figure-html/Density%20plots%20for%20predictions%20for%20matches%20with%20simple%20decks-1.png" width="672" /><img src="/model_files/figure-html/Density%20plots%20for%20predictions%20for%20matches%20with%20simple%20decks-2.png" width="672" /><img src="/model_files/figure-html/Density%20plots%20for%20predictions%20for%20matches%20with%20simple%20decks-3.png" width="672" /></p>
 <p>If the model predicted matches by saying the most likely winner would win, its performance on the above matches, which were used to fit it, would be 345 out of 403 (85.6%). Since it gives a probability of each player winning, we can use proper scoring rules instead (the closer to zero, the better):</p>
-<div id="htmlwidget-2" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-2">{"x":{"url":"/model_files/figure-html//widgets/widget_model scores.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+model
+</th>
+<th style="text-align:right;">
+log score
+</th>
+<th style="text-align:right;">
+Brier score
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+predict every match as 5-5
+</td>
+<td style="text-align:right;">
+0.693
+</td>
+<td style="text-align:right;">
+0.250
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+current model
+</td>
+<td style="text-align:right;">
+0.404
+</td>
+<td style="text-align:right;">
+0.123
+</td>
+</tr>
+</tbody>
+</table>
 </div>
 <div id="player-skill" class="section level1">
 <h1>Player skill</h1>
 <p>Player skills are given as their (additive) effect on their log-odds of winning a match. Skill is currently assumed to not change over time, so given skill levels for long-absent players are narrowly-distributed compared to how certain we’d really be about their current skill level. It’ll also favour players who were veterans before the earliest recorded match, because the period where they learned the ropes is not included in their match records.</p>
 <p><img src="/model_files/figure-html/plot%20vs%20models%20player%20skills-1.png" width="672" /></p>
 <p><img src="/model_files/figure-html/plot%20probability%20player%20is%20best-1.png" width="672" /></p>
-<div id="htmlwidget-3" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-3">{"x":{"url":"/model_files/figure-html//widgets/widget_player skill table.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-2" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
+<script type="application/json" data-for="htmlwidget-2">{"x":{"url":"/model_files/figure-html//widgets/widget_player skill table.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="opposed-component-effects" class="section level1">
 <h1>Opposed component effects</h1>
@@ -42,15 +79,15 @@ date: 'Last modified: 17 Jan 2020'
 <p>Note that these pair effects are <em>not</em> direct appraisals of how the components fare against each other. For each, the Green vs. Black effect doesn’t assess how those two decks decks match up against each other, it assesses how decks using those starter decks <em>tend</em> to match up against each other. Similarly, Blood vs. Future doesn’t, directly assess how those two specs compete at, say, Tech II, because I don’t record tech building choices. Instead, it shows how P1 decks including Blood tend to fare against P2 decks including Future. Note that this also ignores interactions between different pairs completely.</p>
 <p>To examine the matchup between two particular decks, add their components in the relevant Deck components column. The overall matchup is then given below the table, as both the log-odds and the probability of a player 1 victory. Individual pair effects are given in the displayed table rows.</p>
 <p>Currently I’ve not added the players in the same table to account for skill effects. In the meantime, since player skill tends to have a larger effect than the deck matchup, don’t compare the deck matchups to your own match outcomes too strictly, unless you can manually add the effects from the player table (remember to subtract the P2 effect, not add it).</p>
-<div id="htmlwidget-4" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-4">{"x":{"url":"/model_files/figure-html//widgets/widget_simple versus table.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-3" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
+<script type="application/json" data-for="htmlwidget-3">{"x":{"url":"/model_files/figure-html//widgets/widget_simple versus table.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="monocolour-matchups" class="section level1">
 <h1>Monocolour matchups</h1>
 <p>Since we’re most interested in whether monocolour decks are reasonably balanced, here are matchup results for the monocolour decks. The three black vertical lines in each plot facet show the matchup quartiles.</p>
 <p><img src="/model_files/figure-html/make%20vs%20model%20monocolour%20matchup%20plots-1.png" width="672" /></p>
-<div id="htmlwidget-5" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-5">{"x":{"url":"/model_files/figure-html//widgets/widget_print vs model monocolour matchups in order.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-4" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
+<script type="application/json" data-for="htmlwidget-4">{"x":{"url":"/model_files/figure-html//widgets/widget_print vs model monocolour matchups in order.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="model-variances" class="section level1">
 <h1>Model variances</h1>
@@ -68,15 +105,249 @@ date: 'Last modified: 17 Jan 2020'
 <div id="monocolour" class="section level2">
 <h2>Monocolour</h2>
 <p>Greedy:</p>
-<div id="htmlwidget-6" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-6">{"x":{"url":"/model_files/figure-html//widgets/widget_greedy monocolour Nash win.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
-<div id="htmlwidget-7" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-7">{"x":{"url":"/model_files/figure-html//widgets/widget_greedy monocolour Nash details.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+Win probability
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+P1
+</td>
+<td style="text-align:right;">
+0.478
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+P2
+</td>
+<td style="text-align:right;">
+0.522
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Both
+</td>
+<td style="text-align:right;">
+0.500
+</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Deck
+</th>
+<th style="text-align:right;">
+P1
+</th>
+<th style="text-align:right;">
+P2
+</th>
+<th style="text-align:right;">
+Both
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+MonoBlack
+</td>
+<td style="text-align:right;">
+0.324
+</td>
+<td style="text-align:right;">
+0.817
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:right;">
+0.676
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MonoWhite
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.183
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+</tbody>
+</table>
 <p>Calibrated:</p>
-<div id="htmlwidget-8" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-8">{"x":{"url":"/model_files/figure-html//widgets/widget_calibrated monocolour Nash win.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
-<div id="htmlwidget-9" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-9">{"x":{"url":"/model_files/figure-html//widgets/widget_calibrated monocolour Nash details.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+Win probability
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+P1
+</td>
+<td style="text-align:right;">
+0.514
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+P2
+</td>
+<td style="text-align:right;">
+0.486
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Both
+</td>
+<td style="text-align:right;">
+0.500
+</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Deck
+</th>
+<th style="text-align:right;">
+P1
+</th>
+<th style="text-align:right;">
+P2
+</th>
+<th style="text-align:right;">
+Both
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+MonoBlack
+</td>
+<td style="text-align:right;">
+0.329
+</td>
+<td style="text-align:right;">
+0.451
+</td>
+<td style="text-align:right;">
+0.645
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:right;">
+0.279
+</td>
+<td style="text-align:right;">
+0.092
+</td>
+<td style="text-align:right;">
+0.132
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MonoWhite
+</td>
+<td style="text-align:right;">
+0.157
+</td>
+<td style="text-align:right;">
+0.122
+</td>
+<td style="text-align:right;">
+0.076
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MonoBlue
+</td>
+<td style="text-align:right;">
+0.102
+</td>
+<td style="text-align:right;">
+0.101
+</td>
+<td style="text-align:right;">
+0.062
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MonoPurple
+</td>
+<td style="text-align:right;">
+0.061
+</td>
+<td style="text-align:right;">
+0.159
+</td>
+<td style="text-align:right;">
+0.055
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MonoGreen
+</td>
+<td style="text-align:right;">
+0.073
+</td>
+<td style="text-align:right;">
+0.075
+</td>
+<td style="text-align:right;">
+0.029
+</td>
+</tr>
+</tbody>
+</table>
 <p>As would be expected, the chance of winning before determining play order is 50%. Black is dominant, as expected given that it’s known as a strong faction. The only exception is when known to be going first, where Red plays a significant role. However, this is less clear-cut in the calibrated results: even Blue, considered weak due to an especially lopsided matchup against Black, hasn’t been completely cut out.</p>
 </div>
 <div id="all-recorded-decks" class="section level2">
@@ -86,21 +357,93 @@ date: 'Last modified: 17 Jan 2020'
 <div id="win-probability" class="section level3">
 <h3>Win probability</h3>
 <p>Greedy:</p>
-<div id="htmlwidget-10" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-10">{"x":{"url":"/model_files/figure-html//widgets/widget_greedy possibly normal Nash datatable win probabilities.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+Win probability
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+P1
+</td>
+<td style="text-align:right;">
+0.546
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+P2
+</td>
+<td style="text-align:right;">
+0.454
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Both
+</td>
+<td style="text-align:right;">
+0.500
+</td>
+</tr>
+</tbody>
+</table>
 <p>Calibrated:</p>
-<div id="htmlwidget-11" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-11">{"x":{"url":"/model_files/figure-html//widgets/widget_calibrated possibly normal Nash datatable win probabilities.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+Win probability
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+P1
+</td>
+<td style="text-align:right;">
+0.539
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+P2
+</td>
+<td style="text-align:right;">
+0.461
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Both
+</td>
+<td style="text-align:right;">
+0.500
+</td>
+</tr>
+</tbody>
+</table>
 <p>The first player seems to be more advantaged than in the monocolour game, though not by much.</p>
 </div>
 <div id="non-zero-deck-weights" class="section level3">
 <h3>Non-zero deck weights</h3>
 <p>Greedy:</p>
-<div id="htmlwidget-12" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-12">{"x":{"url":"/model_files/figure-html//widgets/widget_greedy possibly normal Nash datatable.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-5" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
+<script type="application/json" data-for="htmlwidget-5">{"x":{"url":"/model_files/figure-html//widgets/widget_greedy possibly normal Nash datatable.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
 <p>Calibrated:</p>
-<div id="htmlwidget-13" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
-<script type="application/json" data-for="htmlwidget-13">{"x":{"url":"/model_files/figure-html//widgets/widget_calibrated possibly normal Nash datatable.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-6" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
+<script type="application/json" data-for="htmlwidget-6">{"x":{"url":"/model_files/figure-html//widgets/widget_calibrated possibly normal Nash datatable.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
 <p>Notably, no decks have been eliminated in the calibrated version, so there is still a lot of uncertainty.</p>
 </div>
 </div>

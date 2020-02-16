@@ -19,6 +19,7 @@ library(dplyr)
 library(ggplot2)
 library(rstan)
 library(codex)
+library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
@@ -110,7 +111,7 @@ model_log_scores <- matchups_models[, .(`log score` = -log(`result probability`)
                                     ][, .(model = c("predict every match as 5-5", "current model"), 
                                           `log score` = c(log(2), mean(`log score`)), 
                                           `Brier score` = c(1/4, mean(`Brier score`)))]
-frameWidget(formatRound(datatable(model_log_scores, options = list(dom = "t"), rownames = FALSE), 2:3, 3), height = "100%")
+kable(model_log_scores, digits = 3)
 ```
 
 # Player skill
@@ -248,13 +249,11 @@ greedy_mono_nash <- get_nash_equilibria(mono_matrix)
 ```
 
 ```{r, "greedy monocolour Nash win"}
-frameWidget(formatRound(datatable(print_nash(greedy_mono_nash), options = list(dom = "t"), rownames = FALSE), 2, 3), 
-height = "100%")
+kable(print_nash(greedy_mono_nash), digits = 3)
 ```
 
 ```{r, "greedy monocolour Nash details"}
-frameWidget(DT_nash(greedy_mono_nash, round = 3, options = list(dom = "t")), 
-            height = "100%")
+kable(reformat_used_nash(greedy_mono_nash), digits = 3)
 ```
 
 Calibrated:
@@ -270,12 +269,11 @@ calibrated_mono_nash <- as.data.table(mono_mean_nash, keep.rownames = "Player")[
 ```
 
 ```{r, "calibrated monocolour Nash win"}
-frameWidget(formatRound(datatable(print_nash(calibrated_mono_nash), options = list(dom = "t"), rownames = FALSE), 2, 3), height = "100%")
+kable(print_nash(calibrated_mono_nash), digits = 3)
 ```
 
 ```{r, "calibrated monocolour Nash details"}
-frameWidget(DT_nash(calibrated_mono_nash, round = 3, options = list(dom = "t")), 
-            height = "100%")
+kable(reformat_used_nash(calibrated_mono_nash), digits = 3)
 ```
 
 As would be expected, the chance of winning before determining play order is 50%. Black is dominant, as expected given that it's known as a strong faction. The only exception is when known to be going first, where Red plays a significant role. However, this is less clear-cut in the calibrated results: even Blue, considered weak due to an especially lopsided matchup against Black, hasn't been completely cut out.
@@ -322,14 +320,13 @@ test_stoch_mean_nash <- as.data.table(apply(test_stoch_nash, 1:2, mean),
 Greedy:
 
 ```{r, "greedy possibly normal Nash datatable win probabilities"}
-frameWidget(formatRound(datatable(print_nash(test_nash), options = list(dom = "t"), rownames = FALSE), 2, 3), height = "100%")
+kable(print_nash(test_nash), digits = 3)
 ```
 
 Calibrated:
 
 ```{r, "calibrated possibly normal Nash datatable win probabilities"}
-frameWidget(formatRound(datatable(print_nash(test_stoch_mean_nash), options = list(dom = "t"), rownames = FALSE), 2, 3), 
-            height = "100%")
+kable(print_nash(test_stoch_mean_nash), digits = 3)
 ```
 
 The first player seems to be more advantaged than in the monocolour game, though not by much.
