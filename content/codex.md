@@ -19,4 +19,4 @@ My personal results summaries are a bit more detailed than Discourse's post form
 
 If I get time, I'll make a proper dashboard to view this information, to include options to investigate performance of different specs against a particular opposing deck.
 
-[Current model page](../model/)
+[Current model page](../codex_model/)
