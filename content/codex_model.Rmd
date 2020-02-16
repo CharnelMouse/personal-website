@@ -26,7 +26,7 @@ knitr::opts_chunk$set(echo = FALSE)
 # Simulation configuration
 
 ```{r, "check ess"}
-untidy_results <- readRDS("./model_files/vs_split.rds")
+untidy_results <- readRDS("./codex_model_files/vs_split.rds")
 parm_info <- as.data.table(summary(untidy_results)$summary, keep.rownames = "parameter")[parameter != "lp_", 
                                                                                          c("parameter", "n_eff")]
 ```
@@ -36,7 +36,7 @@ Current model sample size is 4000. However, since we use a Markov Chain sampler,
 # Posterior model performance
 
 ```{r, "read model results"}
-results <- readRDS("./model_files/tidy_vs_split.rds")
+results <- readRDS("./codex_model_files/tidy_vs_split.rds")
 ```
 
 ```{r, "read model samples"}
@@ -307,7 +307,7 @@ Nash equilibria are given for three types of player: `P1` when known to be going
 
 ```{r, "get used normal deck Nash equilibria"}
 test_nash <- get_nash_equilibria(test_matrix)
-test_stoch_nash <- readRDS("./model_files/nash_samples_vs_split.rds")
+test_stoch_nash <- readRDS("./codex_model_files/nash_samples_vs_split.rds")
 test_stoch_mean_nash <- as.data.table(apply(test_stoch_nash, 1:2, mean), 
                                       keep.rownames = "Player")[, c(.(Player = factor(Player, 
                                                                                       c("P1", "P2", "Both"))), 
