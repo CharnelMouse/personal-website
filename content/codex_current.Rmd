@@ -80,7 +80,8 @@ plot_samples_wrap(get_matchups(vs_results[[1]], caws_decks[caws_valid]))
 ```{r, "CAWS19 mean deck matchups"}
 caws_deck_matchup_array <- get_matchup_array(vs_results[[1]], caws_decks[caws_valid])
 caws_deck_matchups <- apply(caws_deck_matchup_array, 2:3, mean)
-frameWidget(DT_mean_matchup(caws_deck_matchups, "D"),
+frameWidget(DT_mean_matchup(caws_deck_matchups, "D",
+                            options = list(dom = "ftip")),
             height = "100%")
 ```
 
@@ -93,7 +94,8 @@ plot_matchup_samples(get_matchups(vs_results[[1]], caws_decks[caws_valid], caws_
 ```{r, "CAWS19 mean matchups"}
 caws_matchup_array <- get_matchup_array(vs_results[[1]], caws_decks[caws_valid], caws_players[caws_valid])
 caws_matchups <- apply(caws_matchup_array, 2:3, mean)
-frameWidget(DT_mean_matchup(caws_matchups, "P"),
+frameWidget(DT_mean_matchup(caws_matchups, "P",
+                            options = list(dom = "ftip")),
             height = "100%")
 ```
 
