@@ -1,0 +1,1417 @@
+---
+title: "CAWS19 predictions and results"
+author: "Mark Webster"
+date: "2020-02-18"
+output:
+  html_document:
+    number_sections: false
+    code_folding: none
+---
+
+<script src="/rmarkdown-libs/htmlwidgets/htmlwidgets.js"></script>
+<script src="/rmarkdown-libs/pymjs/pym.v1.js"></script>
+<script src="/rmarkdown-libs/widgetframe-binding/widgetframe.js"></script>
+
+
+<p>Everything on this page uses the same 4000 samples as on <a href="../codex_model">the main model page</a>, so the same caveats apply regarding accuracy of win probabilities, and player skills probably being biased against more recent players.</p>
+<div id="caws19-predictions" class="section level1">
+<h1>CAWS19 predictions</h1>
+<p>Tournament entrants:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+player
+</th>
+<th style="text-align:left;">
+deck
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:left;">
+[Future]/Necromancy/Peace
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:left;">
+[Balance]/Blood/Strength
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:left;">
+[Necromancy]/Blood/Present
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:left;">
+[Balance/Growth]/Finesse
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Nopethebard
+</td>
+<td style="text-align:left;">
+MonoRed
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:left;">
+[Past]/Anarchy/Peace
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:left;">
+MonoRed
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:left;">
+Nightmare
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:left;">
+[Past/Present]/Peace
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:left;">
+[Feral]/Fire/Law
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:left;">
+Miracle Grow
+</td>
+</tr>
+</tbody>
+</table>
+<div id="matchup-predictions" class="section level2">
+<h2>Matchup predictions</h2>
+<p>Matchups for decks only, ignoring player skill levels:</p>
+<p><img src="/codex_current_files/figure-html/CAWS19%20matchup%20samples%20deck%20plot-1.png" width="1008" /></p>
+<div id="htmlwidget-1" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
+<script type="application/json" data-for="htmlwidget-1">{"x":{"url":"/codex_current_files/figure-html//widgets/widget_CAWS19 mean deck matchups.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+<p>Matchups for players, accounting for deck strengths:</p>
+<p><img src="/codex_current_files/figure-html/CAWS19%20matchup%20samples%20plot-1.png" width="1008" /></p>
+<div id="htmlwidget-2" style="width:100%;height:100%;" class="widgetframe html-widget"></div>
+<script type="application/json" data-for="htmlwidget-2">{"x":{"url":"/codex_current_files/figure-html//widgets/widget_CAWS19 mean matchups.html","options":{"xdomain":"*","allowfullscreen":false,"lazyload":false}},"evals":[],"jsHooks":[]}</script>
+</div>
+<div id="nash-equilibria" class="section level2">
+<h2>Nash equilibria</h2>
+<p>We can find the Nash equilibria for the case where we could pick one of the decks, or one of the player/deck pairs, in a match. This should be taken with a large pinch of salt when using it to guess who would win the tournament, but it’s a simple heurustic for likely contenders.</p>
+<p>Nash equilibria are calculated by finding the equilibria for each of the 4000 model samples, then taking the mean. This accounts for the model’s posterior uncertainty, so will give more widely-distributed probability distributions than forum-goers might expect.</p>
+<p>Nash for decks only, i.e. decks likely to be dominant if players were of equal skill:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+Win probability
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+P1
+</td>
+<td style="text-align:right;">
+0.539
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+P2
+</td>
+<td style="text-align:right;">
+0.461
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Both
+</td>
+<td style="text-align:right;">
+0.500
+</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Deck
+</th>
+<th style="text-align:right;">
+P1
+</th>
+<th style="text-align:right;">
+P2
+</th>
+<th style="text-align:right;">
+Both
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Nightmare
+</td>
+<td style="text-align:right;">
+0.278
+</td>
+<td style="text-align:right;">
+0.151
+</td>
+<td style="text-align:right;">
+0.265
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+[Necromancy]/Blood/Present
+</td>
+<td style="text-align:right;">
+0.142
+</td>
+<td style="text-align:right;">
+0.197
+</td>
+<td style="text-align:right;">
+0.222
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Miracle Grow
+</td>
+<td style="text-align:right;">
+0.175
+</td>
+<td style="text-align:right;">
+0.114
+</td>
+<td style="text-align:right;">
+0.133
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+[Balance]/Blood/Strength
+</td>
+<td style="text-align:right;">
+0.058
+</td>
+<td style="text-align:right;">
+0.163
+</td>
+<td style="text-align:right;">
+0.125
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:right;">
+0.143
+</td>
+<td style="text-align:right;">
+0.044
+</td>
+<td style="text-align:right;">
+0.063
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+[Balance/Growth]/Finesse
+</td>
+<td style="text-align:right;">
+0.036
+</td>
+<td style="text-align:right;">
+0.081
+</td>
+<td style="text-align:right;">
+0.047
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+[Future]/Necromancy/Peace
+</td>
+<td style="text-align:right;">
+0.062
+</td>
+<td style="text-align:right;">
+0.046
+</td>
+<td style="text-align:right;">
+0.046
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+[Past]/Anarchy/Peace
+</td>
+<td style="text-align:right;">
+0.047
+</td>
+<td style="text-align:right;">
+0.063
+</td>
+<td style="text-align:right;">
+0.046
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+[Feral]/Fire/Law
+</td>
+<td style="text-align:right;">
+0.047
+</td>
+<td style="text-align:right;">
+0.066
+</td>
+<td style="text-align:right;">
+0.033
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+[Past/Present]/Peace
+</td>
+<td style="text-align:right;">
+0.013
+</td>
+<td style="text-align:right;">
+0.074
+</td>
+<td style="text-align:right;">
+0.022
+</td>
+</tr>
+</tbody>
+</table>
+<p>Nash for player/deck pairs:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Player
+</th>
+<th style="text-align:right;">
+Win probability
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+P1
+</td>
+<td style="text-align:right;">
+0.51
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+P2
+</td>
+<td style="text-align:right;">
+0.49
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Both
+</td>
+<td style="text-align:right;">
+0.50
+</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Deck
+</th>
+<th style="text-align:right;">
+P1
+</th>
+<th style="text-align:right;">
+P2
+</th>
+<th style="text-align:right;">
+Both
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:right;">
+0.305
+</td>
+<td style="text-align:right;">
+0.312
+</td>
+<td style="text-align:right;">
+0.388
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:right;">
+0.151
+</td>
+<td style="text-align:right;">
+0.290
+</td>
+<td style="text-align:right;">
+0.269
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:right;">
+0.178
+</td>
+<td style="text-align:right;">
+0.126
+</td>
+<td style="text-align:right;">
+0.138
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:right;">
+0.125
+</td>
+<td style="text-align:right;">
+0.109
+</td>
+<td style="text-align:right;">
+0.089
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:right;">
+0.052
+</td>
+<td style="text-align:right;">
+0.047
+</td>
+<td style="text-align:right;">
+0.048
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:right;">
+0.090
+</td>
+<td style="text-align:right;">
+0.032
+</td>
+<td style="text-align:right;">
+0.029
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:right;">
+0.078
+</td>
+<td style="text-align:right;">
+0.022
+</td>
+<td style="text-align:right;">
+0.018
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:right;">
+0.016
+</td>
+<td style="text-align:right;">
+0.043
+</td>
+<td style="text-align:right;">
+0.017
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:right;">
+0.003
+</td>
+<td style="text-align:right;">
+0.011
+</td>
+<td style="text-align:right;">
+0.002
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:right;">
+0.003
+</td>
+<td style="text-align:right;">
+0.006
+</td>
+<td style="text-align:right;">
+0.001
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Nopethebard
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div id="caws19-results" class="section level1">
+<h1>CAWS19 results</h1>
+<p>While we’re waiting for CAWS19 to complete, at which point I’ll add it to the training data, we can look at how the model’s predictions are doing so far. Here’s the data for all completed matches:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+round
+</th>
+<th style="text-align:left;">
+player1
+</th>
+<th style="text-align:left;">
+player2
+</th>
+<th style="text-align:left;">
+deck1
+</th>
+<th style="text-align:left;">
+deck2
+</th>
+<th style="text-align:left;">
+victor
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:left;">
+Nopethebard
+</td>
+<td style="text-align:left;">
+[Past]/Anarchy/Peace
+</td>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:left;">
+Akiata
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:left;">
+[Future]/Necromancy/Peace
+</td>
+<td style="text-align:left;">
+[Past/Present]/Peace
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:left;">
+[Balance]/Blood/Strength
+</td>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:left;">
+[Feral]/Fire/Law
+</td>
+<td style="text-align:left;">
+Nightmare
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:left;">
+[Balance/Growth]/Finesse
+</td>
+<td style="text-align:left;">
+[Necromancy]/Blood/Present
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:left;">
+[Past/Present]/Peace
+</td>
+<td style="text-align:left;">
+[Past]/Anarchy/Peace
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:left;">
+[Balance]/Blood/Strength
+</td>
+<td style="text-align:left;">
+[Balance/Growth]/Finesse
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:left;">
+Nightmare
+</td>
+<td style="text-align:left;">
+Miracle Grow
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:left;">
+[Necromancy]/Blood/Present
+</td>
+<td style="text-align:left;">
+[Feral]/Law/Fire
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+Nopethebard
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:left;">
+[Future]/Necromancy/Peace
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:left;">
+Nightmare
+</td>
+<td style="text-align:left;">
+[Balance/Growth]/Finesse
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:left;">
+[Past/Present]/Peace
+</td>
+<td style="text-align:left;">
+[Balance]/Blood/Strength
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:left;">
+[Past]/Anarchy/Peace
+</td>
+<td style="text-align:left;">
+[Feral]/Fire/Law
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:left;">
+Miracle Grow
+</td>
+<td style="text-align:left;">
+[Future]/Necromancy/Peace
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:left;">
+[Necromancy]/Blood/Present
+</td>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:left;">
+[Past/Present]/Peace
+</td>
+<td style="text-align:left;">
+Nightmare
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:left;">
+[Balance/Growth]/Finesse
+</td>
+<td style="text-align:left;">
+[Past]/Anarchy/Peace
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:left;">
+[Feral]/Fire/Law
+</td>
+<td style="text-align:left;">
+[Future]/Necromancy/Peace
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:left;">
+[Balance]/Blood/Strength
+</td>
+<td style="text-align:left;">
+Miracle Grow
+</td>
+<td style="text-align:left;">
+codexnewb
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+Nopethebard
+</td>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:left;">
+Bomber678
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:left;">
+[Balance/Growth]/Finesse
+</td>
+<td style="text-align:left;">
+[Past/Present]/Peace
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:left;">
+MonoRed
+</td>
+<td style="text-align:left;">
+[Feral]/Fire/Law
+</td>
+<td style="text-align:left;">
+Bomber678
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:left;">
+Miracle Grow
+</td>
+<td style="text-align:left;">
+[Necromancy]/Blood/Present
+</td>
+<td style="text-align:left;">
+codexnewb
+</td>
+</tr>
+</tbody>
+</table>
+<p>And here’s the comparison with predicted outcomes:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+P1
+</th>
+<th style="text-align:left;">
+P2
+</th>
+<th style="text-align:right;">
+matchup
+</th>
+<th style="text-align:left;">
+P1 wins
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:right;">
+0.880
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:right;">
+0.767
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:left;">
+Nopethebard
+</td>
+<td style="text-align:right;">
+0.756
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:right;">
+0.735
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:right;">
+0.728
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:right;">
+0.705
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:right;">
+0.692
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:right;">
+0.684
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:right;">
+0.600
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:right;">
+0.519
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:right;">
+0.518
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:right;">
+0.493
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:right;">
+0.472
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:right;">
+0.442
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+bolyarich
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:right;">
+0.418
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+codexnewb
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:right;">
+0.401
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+dwarddd
+</td>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:right;">
+0.338
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:right;">
+0.307
+</td>
+<td style="text-align:left;">
+1/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Nopethebard
+</td>
+<td style="text-align:left;">
+FrozenStorm
+</td>
+<td style="text-align:right;">
+0.230
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Nopethebard
+</td>
+<td style="text-align:left;">
+Bomber678
+</td>
+<td style="text-align:right;">
+0.195
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Akiata
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:right;">
+0.159
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CarpeGuitarrem
+</td>
+<td style="text-align:left;">
+EricF
+</td>
+<td style="text-align:right;">
+0.091
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+charnel_mouse
+</td>
+<td style="text-align:left;">
+zhavier
+</td>
+<td style="text-align:right;">
+0.085
+</td>
+<td style="text-align:left;">
+0/1
+</td>
+</tr>
+</tbody>
+</table>
+<p>How does the predicted match fairness change as the rounds progress?</p>
+<p><img src="/codex_current_files/figure-html/CAWS19%20fairness%20progression-1.png" width="672" /></p>
+<p>Average Brier score:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+model
+</th>
+<th style="text-align:right;">
+Brier score
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+predict all matches as 5-5
+</td>
+<td style="text-align:right;">
+0.25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+current model
+</td>
+<td style="text-align:right;">
+0.20
+</td>
+</tr>
+</tbody>
+</table>
+<p>Compare to the Brier score for the training data on <a href="../codex_model">the main model page</a>.</p>
+</div>
