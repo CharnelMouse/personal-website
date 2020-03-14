@@ -8,7 +8,7 @@ output:
     df_print: paged
     css: tables.css
 author: "Mark Webster"
-date: 2020-02-16
+date: 2020-03-14
 ---
 
 ```{r, "setup", include=FALSE}
@@ -44,7 +44,9 @@ sim <- results$tidy_results
 ```
 
 ```{r, "load data", message=FALSE}
-normal_matches <- all_matches[recorder == "charnel_mouse" & (is.element(victory, c("normal", "")) | is.na(victory))]
+normal_matches <- all_matches[recorder == "charnel_mouse" &
+                                (is.element(victory, c("normal", "")) | is.na(victory)) &
+                                format == "forum"]
 mean_data <- prepare_match_data_for_modelling(normal_matches, starters, nicknames, mean = TRUE)
 attach(mean_data)
 starter_names <- starters

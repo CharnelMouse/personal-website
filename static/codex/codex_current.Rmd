@@ -8,7 +8,7 @@ output:
     theme: bootstrap
     css: tables.css
 author: "Mark Webster"
-date: 2020-03-02
+date: 2020-03-14
 ---
 
 ```{r, "setup", include=FALSE}
@@ -41,7 +41,7 @@ DT_fill <- function(df, dom_filter = FALSE) {
 ```
 
 ```{r, "read model results"}
-vs_results <- readRDS("tidy_vs_split.rds")
+vs_results <- readRDS("tidy_current_vs_split.rds")
 ```
 
 # Entrants {data-navmenu="Data"}
@@ -66,7 +66,7 @@ caws_valid <- !is.na(caws_decks)
 # Completed matches {data-navmenu="Data"}
 
 ```{r, "CAWS19 matches"}
-CAWS19_matches <- fread("CAWS19.csv", colClasses = list(Date = c("start", "end")))
+CAWS19_matches <- matches[tournament == "CAWS19"]
 ```
 
 
