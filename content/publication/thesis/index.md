@@ -6,7 +6,7 @@ Zdate: "2016-07-31T00:00:00Z"
 featured: false
 links:
 - name: White Rose eTheses Online version
-  url: White Rose eTheses Online version
+  url: http://etheses.whiterose.ac.uk/16197/
 projects: ["thesis"]
 publication: "University of Leeds / White Rose eTheses Online repository"
 publication_types:
