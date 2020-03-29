@@ -280,6 +280,26 @@ DT_nash(multicolour_stoch_nash, 4L, options = list(dom = "tip"))
 
 `r if(ncol(multicolour_stoch_nash) == 2L + 3084) "Notably, no decks have been eliminated, so there is still a lot of uncertainty."`
 
+How much weight does each component get?
+
+```{r, "Nash weight per component"}
+multinash_comps <- melt(reformat_used_nash(multicolour_stoch_nash)[,
+                                                                   c(prepare_deck_names_for_modelling(Deck,
+                                                                                                      codex::starters,
+                                                                                                      nicknames),
+                                                                     .(P1 = P1, P2 = P2, Both = Both))],
+                        id.vars = c("P1", "P2", "Both"),
+                        variable.name = "Component", value.name = "Name"
+)[,
+  lapply(.SD, sum), .SDcols = c("P1", "P2", "Both"), by = Name]
+knitr::kable(multinash_comps[is.element(Name, codex::starters$starter),
+                             .(Starter = Name, P1, P2, Both)
+                             ][order(-Both)], digits = 3L)
+knitr::kable(multinash_comps[!is.element(Name, codex::starters$starter),
+                             .(Spec = Name, P1, P2, Both)
+                             ][order(-Both)], digits = 3L)
+```
+
 # Counters
 
 We could also suppose that we want the best counter to a known opposing deck, with unknown turn order, among all legal multicolour decks. Averaging over the matchup samples again, we find how likely each deck is to be the best counter-pick to each other deck.
