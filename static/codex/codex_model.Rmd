@@ -267,7 +267,7 @@ multicolour_stoch_nash <- readRDS("multicolour_nash_vs_split.rds")
 ### Win probability
 
 ```{r, "calibrated possibly normal Nash datatable win probabilities"}
-print_nash(multicolour_stoch_nash)
+kable(print_nash(multicolour_stoch_nash), digits = 3L)
 ```
 
 The first player seems to be more advantaged than in the monocolour game, though not by much.
