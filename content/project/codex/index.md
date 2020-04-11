@@ -4,8 +4,6 @@ summary: Statistical modelling of a card game's forum tournament data.
 tags:
 - Codex
 - Side project
-date: "2016-04-27"
-lastmod: "2016-04-27"
 
 image:
   caption: ""

@@ -9,8 +9,6 @@ tags:
 - Approximate Bayesian computation
 - Work project
 categories: []
-date: 2016-07-31
-lastmod: 2016-07-31
 draft: false
 
 # Featured image
