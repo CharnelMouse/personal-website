@@ -50,8 +50,9 @@ This is the standard variance-bias decomposition for the posterior mean squared 
 If we also take the expectation over the data $X$, then the above approach doesn't simplify: $p(X)$ no longer has zero variance, and $p(X) - \mathbb{E}(Y)$ and $Y - \mathbb{E}(Y)$ aren't independent. We therefore get additional variance and covariance terms:
 $$\begin{align*}
 \mathbb{E}(S(p, Y))
-&= \mathrm{Var}(p(X) - Y) + (\mathbb{E}(p(X)) - \mathbb{E}(Y))^2\\\\
-&= \mathrm{Var}(Y) + (\mathbb{E}(p(X)) - \mathbb{E}(Y))^2 + \mathrm{Var}(p(X)) - 2 \textrm{Cov}(p(X), \mathbb{E}(Y)).
+=&\\, \mathrm{Var}(p(X) - Y) + (\mathbb{E}(p(X)) - \mathbb{E}(Y))^2\\\\
+=&\\, \mathrm{Var}(Y) + (\mathbb{E}(p(X)) - \mathbb{E}(Y))^2 + \mathrm{Var}(p(X))\\\\
+&- 2 \textrm{Cov}(p(X), \mathbb{E}(Y)).
 \end{align*}$$
 
 It's easier to calculate the expectation of the posterior decomposition, using the Tower property:
@@ -87,20 +88,23 @@ We begin as above for the prior decomposition, but we apply the Tower property w
 $$\begin{align*}
 \mathbb{E}(S(p, Y)|B)
 &= \mathrm{Var}(p(X) - Y|B) + \mathbb{E}(p(X) - Y|B)^2\\\\
-&= \mathrm{Var}(p(X)|B) + \mathrm{Var}(Y|B) + (\mathbb{E}(p(X)|B) - \mathbb{E}(Y|B))^2 - 2\textrm{Cov}(p(X), Y|B).
+&= \mathrm{Var}(p(X)|B) + \mathrm{Var}(Y|B)\\\\
+&+ (\mathbb{E}(p(X)|B) - \mathbb{E}(Y|B))^2 - 2\textrm{Cov}(p(X), Y|B).
 \end{align*}$$
 These terms remain unsimplified in the unconditional expectation:
 $$\begin{align*}
 \mathbb{E}(S(p, Y))
-=&\\, \mathbb{E}(\mathrm{Var}(Y|B)) + \mathbb{E}(\mathrm{Var}(p(X)|B)) + \mathbb{E}((\mathbb{E}(p(X)|B) - \mathbb{E}(Y|B))^2)\\\\
-&- 2\mathbb{E}(\textrm{Cov}(p(X), Y|B))\\\\
+=&\\, \mathbb{E}(\mathrm{Var}(Y|B)) + \mathbb{E}(\mathrm{Var}(p(X)|B))\\\\
+&+ \mathbb{E}((\mathbb{E}(p(X)|B) - \mathbb{E}(Y|B))^2) - 2\mathbb{E}(\textrm{Cov}(p(X), Y|B))\\\\
 =&\\, \mathrm{Var}(Y) - \underbrace{\mathrm{Var}(\mathbb{E}(Y|B))}_\textrm{binned resolution} + \underbrace{\mathbb{E}((\mathbb{E}(p(X)|B) - \mathbb{E}(Y|B))^2)}_\textrm{binned reliability}\\\\
 &+ \underbrace{\mathbb{E}(\mathrm{Var}(p(X)|B))}_\textrm{within-bin variance} - 2\underbrace{\mathbb{E}(\textrm{Cov}(p(X), Y|B))}_\textrm{within-bin covariance}.
 \end{align*}$$
 The first three terms are clear analogues to the ones we had before. The last two terms are new, arising from $p(X)$ not being removed from the conditional variance term. They exactly counter the change in the resolution and reliability terms: for decent prediction functions $p$, this should mean that their sum is negative, since the resolution-reliability sum should increase due to the loss of information when binning.
 
 Special cases:
-- If $p$ only depends on $X$ through $B := b(X)$ as a summary statistic, then $p(X)$ is invariant conditional on $B$, and the within-bin terms are equal to zero. Let $\bar{p}(b(x)) := p(x)$. This results in the equality $$\mathbb{E}(\bar{p}(B) - \mathbb{E}(Y|X))^2 - \mathbb{E}(\bar{p}(B) - \mathbb{E}(Y|B))^2 = \mathrm{Var}(\mathbb{E}(Y|X)) - \mathrm{Var}(\mathbb{E}(Y|B)).$$
+- If $p$ only depends on $X$ through $B := b(X)$ as a summary statistic, then $p(X)$ is invariant conditional on $B$, and the within-bin terms are equal to zero. Let $\bar{p}(b(x)) := p(x)$. This results in the expressions $$\mathbb{E}(\bar{p}(B) - \mathbb{E}(Y|X))^2 - \mathbb{E}(\bar{p}(B) - \mathbb{E}(Y|B))^2$$and
+$$\mathrm{Var}(\mathbb{E}(Y|X)) - \mathrm{Var}(\mathbb{E}(Y|B))$$
+being equal.
 - If $b$ is the identity function, we have as many bins as possible values. The within-bin terms are equal to zero, and we get the unconditional decomposition from before.
 
 References:
