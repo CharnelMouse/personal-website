@@ -2,13 +2,12 @@
 title: "Codex model"
 output:
   html_document:
-    number_sections: false
-    self_contained: yes
-    code_folding: none
-    df_print: paged
+    toc: true
     css: tables.css
 author: "Mark Webster"
-date: "2020-04-09, data last updated 2020-03-29"
+date: |
+  | Page last updated 2020-04-29
+  | Data last updated 2020-03-29
 ---
 
 ```{r, "setup", include=FALSE}

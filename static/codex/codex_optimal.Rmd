@@ -2,13 +2,12 @@
 title: "Codex model - optimal picks"
 output:
   html_document:
-    number_sections: false
-    self_contained: yes
-    code_folding: none
-    df_print: paged
+    toc: true
     css: tables.css
 author: "Mark Webster"
-date: "2020-04-29, data last updated 2020-03-29"
+date: |
+  | Page last updated 2020-04-29
+  | Data last updated 2020-03-29
 ---
 
 ```{r, "setup", include=FALSE}
@@ -113,7 +112,7 @@ Black and Necromancy are dominant, as expected. Some components rate unexpectedl
 
 # Counters
 
-Given the opponent's choice of deck, bit without knowing who will go first, how should we counter-pick?
+Given the opponent's choice of deck, but without knowing who will go first, how should we counter-pick?
 
 Averaging over the matchup samples again, we find how likely each deck is to be the best counter-pick to each other deck.
 
