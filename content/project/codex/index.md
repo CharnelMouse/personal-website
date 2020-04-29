@@ -30,4 +30,4 @@ If I get time, I'll make a proper dashboard to view this information, to include
 
 [Predictions for current tournament](../../codex/codex_current.html): Predictions for matches in the current forum tournament, including measures of matchup fairness, and Nash equilibria as a rough indicator of likely winners. The current forum tournament is the Spring Seasonal Swiss (XCAPS20): this is an experimental tournament that uses the map cards. This is outside the remit of the model, so this page currently shows the final results for the previous tournament, the Winter Seasonal Swiss (CAWS19).
 
-[Optimal picking](../../codex/codex_optimal.html): Nash equilbria for deck choices, and good counters against known opposing decks, as considered by the model. These are expensive to run, and aren't updated as frequently.
+[Optimal picking](../../codex/codex_optimal.html): Nash equilibria for deck choices, and good counters against known opposing decks, as considered by the model. These are expensive to run, and aren't updated as frequently.
