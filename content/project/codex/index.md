@@ -26,5 +26,8 @@ My personal results summaries are a bit more detailed than Discourse's post form
 
 If I get time, I'll make a proper dashboard to view this information, to include options to investigate performance of different specs against a particular opposing deck.
 
-[Main model page](../../codex/codex_model.html)\
-[Predictions for current tournament](../../codex/codex_current.html)
+[Main model page](../../codex/codex_model.html): Post-hoc model performance on recorded matches; estimates for player skill levels, opposed-pair deck component effects, and monocolour matchups with uncertainty plots; estimate of importance of player skill compared to deck choices.
+
+[Predictions for current tournament](../../codex/codex_current.html): Predictions for matches in the current forum tournament, including measures of matchup fairness, and Nash equilibria as a rough indicator of likely winners. The current forum tournament is the Spring Seasonal Swiss (XCAPS20): this is an experimental tournament that uses the map cards. This is outside the remit of the model, so this page currently shows the final results for the previous tournament, the Winter Seasonal Swiss (CAWS19).
+
+[Optimal picking](../../codex/codex_optimal.html): Nash equilbria for deck choices, and good counters against known opposing decks, as considered by the model. These are expensive to run, and aren't updated as frequently.

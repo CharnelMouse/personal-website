@@ -1,0 +1,219 @@
+---
+title: "Codex model - optimal picks"
+output:
+  html_document:
+    number_sections: false
+    self_contained: yes
+    code_folding: none
+    df_print: paged
+    css: tables.css
+author: "Mark Webster"
+date: "2020-04-29, data last updated 2020-03-29"
+---
+
+```{r, "setup", include=FALSE}
+library(data.table)
+library(stringr)
+library(DT)
+library(dplyr)
+library(ggplot2)
+library(rstan)
+library(codex)
+library(kableExtra)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, "read model results"}
+results <- readRDS("tidy_vs_split.rds")
+```
+
+```{r, "extract vs model matrices"}
+vs_array <- extract_vs_model_array(results)
+```
+
+```{r, "extract monodecks"}
+mononames <- sort(paste0("Mono", setdiff(starters$starter, "Neutral")))
+```
+
+# Nash equilibria / Tier list
+
+Given a set of decks to choose from, if both players are picking a deck without seeing the other player's deck first, how should we choose which deck to play?
+
+For a set of decks, we can take the model's simulated matchup samples, determine the Nash equilibrium for each sample, and take each deck's mean weight over the equilibria to find the general Nash equilibrium. This takes proper account of the model's uncertainty over the matchups. Using it to choose a deck is equivalent to Thompson sampling: for player skills, this would randomly choose a player to state as the best, weighted by the players' probabilities of being the best. This approach is better calibrated.
+
+Nash equilibria are given for three types of player: `P1` when known to be going first, `P2` when known to be going second, and `Both` for the more common case where the deck is chosen before a coin flip to determine who goes first.
+
+## Monocolour
+
+```{r, "probabilistic versus model equilibrium"}
+vs_mono_array <- get_matchup_array(results, mononames)
+mono_stoch_nash <- get_nash_equilibria(vs_mono_array)
+mono_mean_nash <- apply(mono_stoch_nash, 1:2, mean)
+calibrated_mono_nash <- as.data.table(mono_mean_nash, keep.rownames = "Player")[, c(.(Player = factor(Player, 
+                                                                                                      c("P1", "P2", "Both"))), 
+                                                                                    .SD), 
+                                                                                .SDcols = dimnames(mono_stoch_nash)[[2]]]
+```
+
+```{r, "calibrated monocolour Nash win"}
+kable(print_nash(calibrated_mono_nash), digits = 3)
+```
+
+The chance of winning before determining play order is 50%, as we'd expect if we've calculated things properly.
+
+```{r, "calibrated monocolour Nash details"}
+kable(reformat_used_nash(calibrated_mono_nash), digits = 3)
+```
+
+Black is dominant, as expected given that it's known as a strong faction. Other decks have a larger presence when it's known whether you're going first or second. However, there is a lot of uncertainty: even Blue, considered weak due to an especially lopsided matchup against Black, hasn't been cut.
+
+## Multicolour
+
+```{r, "get used normal deck Nash equilibria"}
+multicolour_stoch_nash <- readRDS("multicolour_nash_vs_split.rds")
+```
+
+### Win probability
+
+```{r, "calibrated possibly normal Nash datatable win probabilities"}
+kable(print_nash(multicolour_stoch_nash), digits = 3L)
+```
+
+The first player seems to be more advantaged than in the monocolour game, though not by much.
+
+### Non-zero deck weights
+
+```{r, "calibrated possibly normal Nash datatable"}
+DT_nash(multicolour_stoch_nash, 4L, options = list(dom = "tip"))
+```
+
+`r if(ncol(multicolour_stoch_nash) == 2L + 3084) "Notably, no decks have been eliminated, so there is still a lot of uncertainty."`
+
+This allows us to give the model's tier list for deck components with a simple measure: how much Nash weight does each component get?
+
+```{r, "Nash weight per component"}
+multinash_comps <- melt(reformat_used_nash(multicolour_stoch_nash)[,
+                                                                   c(prepare_deck_names_for_modelling(Deck,
+                                                                                                      codex::starters,
+                                                                                                      nicknames),
+                                                                     .(P1 = P1, P2 = P2, Both = Both))],
+                        id.vars = c("P1", "P2", "Both"),
+                        variable.name = "Component", value.name = "Name"
+)[,
+  lapply(.SD, sum), .SDcols = c("P1", "P2", "Both"), by = Name]
+knitr::kable(multinash_comps[is.element(Name, codex::starters$starter),
+                             .(Starter = Name, P1, P2, Both)
+                             ][order(-Both)], digits = 3L)
+knitr::kable(multinash_comps[!is.element(Name, codex::starters$starter),
+                             .(Spec = Name, P1, P2, Both)
+                             ][order(-Both)], digits = 3L)
+```
+
+Black and Necromancy are dominant, as expected. Some components rate unexpectedly high, despite being considered weak: Blue starter and Bashing stand out. This is likely to be due to those components not being used often in tournament play: this results in high uncertainty for their strength in the model, so occasionally a simulated sample considers them to be strong components, rating highly in the sample's Nash equilibrium.
+
+# Counters
+
+Given the opponent's choice of deck, bit without knowing who will go first, how should we counter-pick?
+
+Averaging over the matchup samples again, we find how likely each deck is to be the best counter-pick to each other deck.
+
+## Monocolour
+
+```{r, "counters for monocolour decks"}
+monocounters <- rbindlist(lapply(setNames(mononames, mononames), counter, vs_array, "mono"),
+                          idcol = "Opponent")
+formatRound(datatable(monocounters[order(-`Probability best counter`)], filter = "top", rownames = FALSE,
+                      options = list(dom = "ftip")),
+            3:4, 3L)
+```
+
+Black is the most-likely-best counter to everyone, except for Red (White) and White (Purple).
+
+## Multicolour
+
+The full counter table is too large to show here, so here are some highlights.
+
+We get the following top counter-picks (i.e. highest probability of being best counter) for each opponent (there are a few ties):
+
+```{r, "multicolour counter-picks for lognormal prior"}
+counters <- readRDS("multicolour_counters.rds")
+formatRound(datatable(counters[, .SD[`Probability best counter` == max(`Probability best counter`)],
+                               by = "Opponent"
+                               ][order(-`Probability best counter`)],
+                      filter = "top", rownames = FALSE,
+                      options = list(dom = "ftip")),
+            3:4, 4L)
+```
+
+Here is each deck's counter with highest mean win probability:
+
+```{r, "multicolour highest-probability counter-picks for lognormal prior"}
+formatRound(datatable(counters[, .SD[`Counter win probability` == max(`Counter win probability`)],
+                               by = "Opponent"
+                               ][order(-`Counter win probability`)],
+                      filter = "top", rownames = FALSE,
+                      options = list(dom = "ftip")),
+            3:4, 4L)
+```
+
+Here are the top counter-picks for a few notable decks.
+
+[Demonology/Necromancy]/Finesse, AKA Nightmare:
+
+```{r, "deck countering example"}
+knitr::kable(head(counter("Nightmare", vs_array)),
+             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+```
+
+[Anarchy]/Growth/Strength, AKA Miracle Grow, which can do well against Nightmare:
+
+```{r, "Miracle Grow counters"}
+knitr::kable(head(counter("Miracle Grow", vs_array)),
+             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+```
+
+[Past]/Anarchy/Peace, AKA PPA:
+
+```{r, "PPA counters"}
+knitr::kable(head(counter("[Past]/Anarchy/Peace", vs_array)),
+             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+```
+
+[Discipline/Strength]/Finesse, which has performed well in recent tournaments:
+
+```{r, "Daymare counters"}
+knitr::kable(head(counter("[Discipline/Strength]/Finesse", vs_array)),
+             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+```
+
+[Demonology]/Anarchy/Balance, which has performed well against Mirace Grow:
+
+```{r, "DAB counters"}
+knitr::kable(head(counter("[Demonology/Anarchy/Balance", vs_array)),
+             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+```
+
+```{r, "best Nash deck"}
+best <- reformat_used_nash(multicolour_stoch_nash)[1, Deck]
+```
+
+`r best`, the deck with highest weight in the Nash mean:
+
+```{r, "best's counter"}
+knitr::kable(head(counter(best, vs_array)),
+             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+```
+
+```{r, "hardest deck to counter"}
+hardest <- counters[, .SD[`Probability best counter` == max(`Probability best counter`)
+                          ][`Counter win probability` == max(`Counter win probability`)],
+                    by = "Opponent"
+                    ][`Counter win probability` == min(`Counter win probability`)]
+```
+
+`r hardest$Opponent`, the deck whose most-likely-best counter has the lowest mean win probability:
+
+```{r, "counters for hardest to counter"}
+knitr::kable(head(counter(as.character(hardest$Opponent), vs_array)),
+             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+```
