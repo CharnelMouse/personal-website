@@ -7,7 +7,7 @@ output:
 author: "Mark Webster"
 date: |
   | Page last updated 2020-04-29
-  | Data last updated 2020-03-29
+  | Data last updated 2020-04-30
 ---
 
 ```{r, "setup", include=FALSE}
@@ -46,7 +46,7 @@ sim <- results$tidy_results
 ```{r, "load data", message=FALSE}
 normal_matches <- all_matches[recorder == "charnel_mouse" &
                                 (is.element(victory, c("normal", "")) | is.na(victory)) &
-                                format == "forum"]
+                                format == "forum" & is.na(map) & !is.na(victor)]
 mean_data <- prepare_match_data_for_modelling(normal_matches, starters, nicknames, mean = TRUE)
 attach(mean_data)
 starter_names <- starters
@@ -144,8 +144,8 @@ plot_probability_largest(prob_largest_skill) +
 Here's the same results, narrowed down to players that have played in the last year (i.e. have finished a recorded match on `r one_year_ago` or later):
 
 ```{r, "extract vs split models active player skills"}
-latest_play_dates <- rbind(matches[, .(last = max(end)), by = "player1"][, .(player = player1, last = last)],
-                           matches[, .(last = max(end)), by = "player2"][, .(player = player2, last = last)]
+latest_play_dates <- rbind(matches[, .(last = max(end, na.rm = TRUE)), by = "player1"][, .(player = player1, last = last)],
+                           matches[, .(last = max(end, na.rm = TRUE)), by = "player2"][, .(player = player2, last = last)]
                            )[, .(last = max(last)), by = "player"]
 active_players <- latest_play_dates[last >= one_year_ago, player]
 ```
