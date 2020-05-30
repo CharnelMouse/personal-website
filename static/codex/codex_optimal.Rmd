@@ -7,7 +7,7 @@ output:
 author: "Mark Webster"
 date: |
   | Page last updated 2020-04-29
-  | Data last updated 2020-03-29
+  | Data last updated 2020-05-26
 ---
 
 ```{r, "setup", include=FALSE}
@@ -78,7 +78,7 @@ multicolour_stoch_nash <- readRDS("multicolour_nash_vs_split.rds")
 kable(print_nash(multicolour_stoch_nash), digits = 3L)
 ```
 
-The first player seems to be more advantaged than in the monocolour game, though not by much.
+The first player seems to be less advantaged than in the monocolour game, though not by much.
 
 ### Non-zero deck weights
 
@@ -126,7 +126,7 @@ formatRound(datatable(monocounters[order(-`Probability best counter`)], filter =
             3:4, 3L)
 ```
 
-Black is the most-likely-best counter to everyone, except for Red (White) and White (Purple).
+Black is the most-likely-best counter to everyone, except for Purple (Red) and White (Purple).
 
 ## Multicolour
 
