@@ -6,7 +6,7 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-04-29
+  | Page last updated 2020-05-26
   | Data last updated 2020-05-26
 ---
 
@@ -86,9 +86,18 @@ The first player seems to be less advantaged than in the monocolour game, though
 DT_nash(multicolour_stoch_nash, 4L, options = list(dom = "tip"))
 ```
 
-`r if(ncol(multicolour_stoch_nash) == 2L + 3084) "Notably, no decks have been eliminated, so there is still a lot of uncertainty."`
+```{r, "Multicolour Nash mean counts for non-zero weights"}
+tidy_multicolour_stoch_nash <- reformat_used_nash(multicolour_stoch_nash)
+multicolour_stoch_nash_zero <- melt(tidy_multicolour_stoch_nash[, lapply(.SD, function(x) sum(x == 0)),
+                                                                .SDcols = c("P1", "P2", "Both")],
+                                    id.vars = character(0), 
+                                    variable.name = "Player", value.name = "# with zero weight")
+kable(multicolour_stoch_nash_zero)
+```
 
-This allows us to give the model's tier list for deck components with a simple measure: how much Nash weight does each component get?
+Few decks have been eliminated, so there is still a lot of uncertainty.
+
+This deck Nash weight information allows us to give the model's tier list for deck components with a simple measure: how much Nash weight does each component get?
 
 ```{r, "Nash weight per component"}
 multinash_comps <- melt(reformat_used_nash(multicolour_stoch_nash)[,
