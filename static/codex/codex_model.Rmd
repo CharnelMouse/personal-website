@@ -7,7 +7,7 @@ output:
 author: "Mark Webster"
 date: |
   | Page last updated 2020-04-29
-  | Data last updated 2020-05-26
+  | Data last updated 2020-06-06
 ---
 
 ```{r, "setup", include=FALSE}
@@ -20,7 +20,7 @@ library(rstan)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2019-05-16")
+one_year_ago <- as.Date("2019-06-06")
 ```
 
 # Simulation configuration
