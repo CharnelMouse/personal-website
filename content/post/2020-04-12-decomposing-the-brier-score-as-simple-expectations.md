@@ -1,5 +1,6 @@
 ---
 title: Decomposing the Brier score as simple expectations
+date: 2020-04-16
 author: ~
 slug: decomposing-the-brier-score-as-simple-expectations
 categories: []

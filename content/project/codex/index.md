@@ -1,6 +1,7 @@
 ---
 title: Codex
 summary: Statistical modelling of a card game's forum tournament data.
+date: 2020-05-02
 tags:
 - Codex
 - Side project

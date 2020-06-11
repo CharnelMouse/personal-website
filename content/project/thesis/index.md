@@ -3,6 +3,7 @@
 
 title: "Thesis"
 subtitle: "Convergence properties of Approximate Bayesian computation"
+date: 2016-07-31
 summary: "Convergence properties of Approximate Bayesian computation"
 authors: [mark-webster]
 tags:
