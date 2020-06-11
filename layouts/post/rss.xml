@@ -26,7 +26,7 @@
       <link>{{ .Permalink }}</link>
     </image>
     {{end -}}
-    {{ range where (where .Site.Pages .Section "content/post") "Kind" "page" }}
+    {{ range $pages }}
     <item>
       <title>{{ .Title }}</title>
       <link>{{ .Permalink }}</link>
