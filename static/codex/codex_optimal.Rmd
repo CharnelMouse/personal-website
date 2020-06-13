@@ -6,7 +6,7 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-05-26
+  | Page last updated 2020-06-13
   | Data last updated 2020-06-13
 ---
 
@@ -14,7 +14,6 @@ date: |
 library(data.table)
 library(stringr)
 library(DT)
-library(dplyr)
 library(ggplot2)
 library(rstan)
 library(codex)
@@ -194,7 +193,7 @@ knitr::kable(head(counter("[Discipline/Strength]/Finesse", vs_array)),
              digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
 ```
 
-[Demonology]/Anarchy/Balance, which has performed well against Mirace Grow:
+[Demonology]/Anarchy/Balance, which has performed well against Miracle Grow:
 
 ```{r, "DAB counters"}
 knitr::kable(head(counter("[Demonology/Anarchy/Balance", vs_array)),

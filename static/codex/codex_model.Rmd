@@ -14,13 +14,12 @@ date: |
 library(data.table)
 library(stringr)
 library(DT)
-library(dplyr)
 library(ggplot2)
 library(rstan)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2019-06-06")
+one_year_ago <- as.Date("2019-06-13")
 ```
 
 # Simulation configuration
