@@ -6,7 +6,7 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-04-29
+  | Page last updated 2020-06-13
   | Data last updated 2020-06-13
 ---
 
@@ -26,12 +26,10 @@ one_year_ago <- as.Date("2019-06-06")
 # Simulation configuration
 
 ```{r, "check ess"}
-untidy_results <- readRDS("vs_split.rds")
-parm_info <- as.data.table(summary(untidy_results)$summary, keep.rownames = "parameter")[parameter != "lp_", 
-                                                                                         c("parameter", "n_eff")]
+n_eff_info <- fread("vs_split_n_eff.csv")
 ```
 
-Current model sample size is 4000. However, since we use a Markov Chain sampler, the samples are correlated: the effective sample size varies between different parameters, within the range (`r floor(min(parm_info$n_eff))`, `r ceiling(max(parm_info$n_eff))`).
+Current model sample size is 4000. However, since we use a Markov Chain sampler, the samples are correlated: the effective sample size varies between different parameters, within the range (`r floor(min(n_eff_info$n_eff))`, `r ceiling(max(n_eff_info$n_eff))`).
 
 # Posterior model performance
 
