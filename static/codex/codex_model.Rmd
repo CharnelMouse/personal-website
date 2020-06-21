@@ -7,7 +7,7 @@ output:
 author: "Mark Webster"
 date: |
   | Page last updated 2020-06-13
-  | Data last updated 2020-06-13
+  | Data last updated 2020-06-21
 ---
 
 ```{r, "setup", include=FALSE}
@@ -41,9 +41,9 @@ sim <- results$tidy_results
 ```
 
 ```{r, "load data", message=FALSE}
-normal_matches <- all_matches[recorder == "charnel_mouse" &
-                                (is.element(victory, c("normal", "")) | is.na(victory)) &
-                                format == "forum" & is.na(map) & !is.na(victor)]
+normal_matches <- matches[recorder == "charnel_mouse" &
+                            (is.element(victory, c("normal", "")) | is.na(victory)) &
+                            is.na(map) & !is.na(victor)]
 mean_data <- prepare_match_data_for_modelling(normal_matches, starters, nicknames, mean = TRUE)
 attach(mean_data)
 starter_names <- starters
@@ -54,14 +54,8 @@ starters <- codex::starters
 ```{r, "Matchup predictions for mean performance models"}
 won_effect <- 2*rep(w, each = nrow(sim$matchup)) - 1
 won <- w == 1
-match_names <- paste0(normal_matches$tournament,
-                      " Round ", normal_matches$round, 
-                      ", Game ", normal_matches$round_match_number,
-                      ": ", normal_matches$player1, " ", normal_matches$deck1,
-                      " vs. ",
-                      normal_matches$player2, " ", normal_matches$deck2, 
-                      ", won by ", normal_matches$victor)
-match_res <- colMeans(1/(1 + exp(-won_effect*sim$matchup[, 1:M, drop = FALSE])))
+match_names <- codex:::match_names(normal_matches)
+match_res <- colMeans(1/(1 + exp(-won_effect*sim$matchup[, ..match_names, drop = FALSE])))
 matchups_models <- data.table(`match name` = match_names,
                               `result probability` = match_res,
                               fairness = 1 - 2*abs(match_res - 1/2))

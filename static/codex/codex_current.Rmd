@@ -8,11 +8,12 @@ output:
     theme: bootstrap
     css: tables.css
 author: "Mark Webster"
-date: 2020-03-14
+date: 2020-06-21
 ---
 
 ```{r, "setup", include=FALSE}
-library(tidyverse)
+current <- "CAWS19"
+library(ggplot2)
 theme_codex <- theme_dark() +
   theme(panel.border = element_rect(fill = NA, colour = "grey13"),
         plot.background = element_rect(fill = "grey13", colour = "grey13"),
@@ -46,7 +47,7 @@ vs_results <- readRDS("tidy_current_vs_split.rds")
 
 # Entrants {data-navmenu="Data"}
 
-```{r, "CAWS19 matchups"}
+```{r, "current matchups"}
 caws_players <- c("FrozenStorm", "charnel_mouse", 
                   "CarpeGuitarrem", 
                   "zhavier", "Nopethebard", "Akiata", 
