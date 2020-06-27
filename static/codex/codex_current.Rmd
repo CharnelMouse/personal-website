@@ -1,5 +1,5 @@
 ---
-title: "CAWS19 predictions"
+title: "CAMS20 predictions"
 output: 
   flexdashboard::flex_dashboard:
     navbar:
@@ -8,11 +8,11 @@ output:
     theme: bootstrap
     css: tables.css
 author: "Mark Webster"
-date: 2020-06-21
+date: 2020-06-26
 ---
 
 ```{r, "setup", include=FALSE}
-current <- "CAWS19"
+current <- "CAMS20"
 library(ggplot2)
 theme_codex <- theme_dark() +
   theme(panel.border = element_rect(fill = NA, colour = "grey13"),
@@ -48,32 +48,23 @@ vs_results <- readRDS("tidy_current_vs_split.rds")
 # Entrants {data-navmenu="Data"}
 
 ```{r, "current matchups"}
-caws_players <- c("FrozenStorm", "charnel_mouse", 
-                  "CarpeGuitarrem", 
-                  "zhavier", "Nopethebard", "Akiata", 
-                  "Bomber678", "bolyarich", "dwarddd", "EricF", 
-                  "codexnewb")
-caws_decks <- standardise_deck_name(c("[Future]/Peace/Necromancy", "[Balance]/Blood/Strength", 
-                                      "[Necromancy]/Blood/Present", 
-                                      "[Balance]/Growth/Finesse", "MonoRed", "[Past]/Peace/Anarchy", 
-                                      "MonoRed", "Nightmare", "[Past/Present]/Peace", "[Feral]/Law/Fire", 
-                                      "Miracle Grow"), 
-                                    codex::starters, codex::nicknames)
-caws_entries <- data.table(player = caws_players, deck = caws_decks, stringsAsFactors = TRUE)
-kable(caws_entries)
-caws_valid <- !is.na(caws_decks)
+current_players <- decks[tournament == current, player]
+current_decks <- decks[tournament == current, deck]
+current_entries <- data.table(player = current_players, deck = current_decks, stringsAsFactors = TRUE)
+kable(current_entries)
+current_valid <- !is.na(current_decks)
 ```
 
 # Completed matches {data-navmenu="Data"}
 
-```{r, "CAWS19 matches"}
-CAWS19_matches <- matches[tournament == "CAWS19"]
+```{r, "current matches"}
+current_matches <- matches[tournament == current]
 ```
 
 
-```{r, "finished CAWS matches"}
-finished_CAWS19_matches <- CAWS19_matches[!is.na(victor)]
-DT_fill(finished_CAWS19_matches[, c("round", "player1", "player2", "deck1", "deck2", "victor")],
+```{r, "finished current matches"}
+finished_current_matches <- current_matches[!is.na(victor)]
+DT_fill(finished_current_matches[, c("round", "player1", "player2", "deck1", "deck2", "victor")],
         dom_filter = TRUE)
 ```
 
@@ -84,63 +75,67 @@ Colours indicate mean matchup, using the [viridis inferno palette](https://cran.
 ```{r, "matchup plot with wrap function"}
 plot_samples_wrap <- function(matchup_samples) {
   plot_matchup_samples(matchup_samples[, .(P1 = `levels<-`(P1, stringr::str_replace_all(levels(P1), "/", " ")),
-                                                                               P2 = `levels<-`(P2, stringr::str_replace_all(levels(P2), "/", " ")),
-                                                                               prob_matchup, prob_mean)], 2) +
-  facet_grid(P1~P2, labeller = labeller(P1 = label_wrap_gen(10), P2 = label_wrap_gen(15)))
+                                           P2 = `levels<-`(P2, stringr::str_replace_all(levels(P2), "/", " ")),
+                                           prob_matchup, prob_mean)], 2) +
+    facet_grid(P1~P2, labeller = labeller(P1 = label_wrap_gen(10), P2 = label_wrap_gen(15)))
 }
 ```
 
 ### Deck only
 
-```{r, "CAWS19 lognormal deck matchup samples plot", fig.width=10.5, fig.height=7.5, warning=FALSE}
-plot_samples_wrap(get_matchups(vs_results, caws_decks[caws_valid]))
+```{r, "current lognormal deck matchup samples plot", fig.width=10.5, fig.height=7.5, warning=FALSE}
+plot_samples_wrap(get_matchups(vs_results, current_decks[current_valid]))
 ```
 
 ### Overall
 
-```{r, "CAWS19 overall matchup samples plot", fig.width=10.5, fig.height=7.5, warning=FALSE}
-plot_matchup_samples(get_matchups(vs_results, caws_decks[caws_valid], caws_players[caws_valid]), 2)
+```{r, "current overall matchup samples plot", fig.width=10.5, fig.height=7.5, warning=FALSE, include=FALSE}
+plot_matchup_samples(get_matchups(vs_results, current_decks[current_valid], current_players[current_valid]), 2)
 ```
+
+Hidden until the tournament is finished, to prevent influencing matches.
 
 # Matchup tables {data-orientation=rows data-navmenu="Predictions"}
 
-```{r, "CAWS19 mean matchups"}
-caws_deck_matchup_array <- get_matchup_array(vs_results, caws_decks[caws_valid])
-caws_matchup_array <- get_matchup_array(vs_results, caws_decks[caws_valid], caws_players[caws_valid])
+```{r, "current mean matchups"}
+current_deck_matchup_array <- get_matchup_array(vs_results, current_decks[current_valid])
+current_matchup_array <- get_matchup_array(vs_results, current_decks[current_valid], current_players[current_valid])
 
-caws_deck_matchups <- apply(caws_deck_matchup_array, 2:3, mean)
-caws_matchups <- apply(caws_matchup_array, 2:3, mean)
+current_deck_matchups <- apply(current_deck_matchup_array, 2:3, mean)
+current_matchups <- apply(current_matchup_array, 2:3, mean)
 ```
 
 ### Deck-only
 
-```{r, "CAWS19 deck matchups"}
-formatRound(DT_fill(reformat_mean_matchup(caws_deck_matchups, "D"), dom_filter = TRUE), 3:4, 3L)
+```{r, "current deck matchups"}
+formatRound(DT_fill(reformat_mean_matchup(current_deck_matchups, "D"), dom_filter = TRUE), 3:4, 3L)
 ```
 
 ### Overall
 
-```{r, "CAWS19 overall matchups"}
-formatRound(DT_fill(reformat_mean_matchup(caws_matchups, "P"), dom_filter = TRUE), 3:4, 3L)
+```{r, "current overall matchups", include=FALSE}
+formatRound(DT_fill(reformat_mean_matchup(current_matchups, "P"), dom_filter = TRUE), 3:4, 3L)
 ```
+
+Hidden until the tournament is finished, to prevent influencing matches.
 
 # Nash equilibria for entrants {data-orientation=rows data-navmenu="Predictions"}
 
 Nash equilibrium is not a good indicator of who's most likely to win the tournament, but it's a quick, simple heuristic to find likely contenders. Weights given are averaged over Nash equilibria calculated for each simulation sample (n = 4000).
 
-```{r, "CAWS19 mean Nash"}
-caws_deck_nash_samples <- get_nash_equilibria(caws_deck_matchup_array)
-caws_deck_mean_nash <- as.data.table(apply(caws_deck_nash_samples, 1:2, mean), 
-                                     keep.rownames = "Player")[, c(.(Player = factor(Player, 
-                                                                                     c("P1", "P2", "Both"))), 
-                                                                   .SD), 
-                                                               .SDcols = dimnames(caws_deck_nash_samples)[[2]]]
-caws_nash_samples <- get_nash_equilibria(caws_matchup_array)
-caws_mean_nash <- as.data.table(apply(caws_nash_samples, 1:2, mean), 
-                                keep.rownames = "Player")[, c(.(Player = factor(Player, 
-                                                                                c("P1", "P2", "Both"))), 
-                                                              .SD), 
-                                                          .SDcols = dimnames(caws_nash_samples)[[2]]]
+```{r, "current mean Nash"}
+current_deck_nash_samples <- get_nash_equilibria(current_deck_matchup_array)
+current_deck_mean_nash <- as.data.table(apply(current_deck_nash_samples, 1:2, mean), 
+                                        keep.rownames = "Player")[, c(.(Player = factor(Player, 
+                                                                                        c("P1", "P2", "Both"))), 
+                                                                      .SD), 
+                                                                  .SDcols = dimnames(current_deck_nash_samples)[[2]]]
+current_nash_samples <- get_nash_equilibria(current_matchup_array)
+current_mean_nash <- as.data.table(apply(current_nash_samples, 1:2, mean), 
+                                   keep.rownames = "Player")[, c(.(Player = factor(Player, 
+                                                                                   c("P1", "P2", "Both"))), 
+                                                                 .SD), 
+                                                             .SDcols = dimnames(current_nash_samples)[[2]]]
 ```
 
 ## Mean Nash win rate {data-height=300}
@@ -148,13 +143,13 @@ caws_mean_nash <- as.data.table(apply(caws_nash_samples, 1:2, mean),
 ### Deck-only mean win rate
 
 ```{r, "deck mean Nash win"}
-kable(print_nash(caws_deck_mean_nash), digits = 3)
+kable(print_nash(current_deck_mean_nash), digits = 3)
 ```
 
 ### Overall mean win rate
 
 ```{r, "overall mean Nash win"}
-kable(print_nash(caws_mean_nash), digits = 3)
+kable(print_nash(current_mean_nash), digits = 3)
 ```
 
 ## Mean Nash pick rate {data-height=700}
@@ -162,33 +157,33 @@ kable(print_nash(caws_mean_nash), digits = 3)
 ### Deck-only mean pick distribution
 
 ```{r, "deck mean Nash spread"}
-kable(reformat_used_nash(caws_deck_mean_nash), digits = 3)
+kable(reformat_used_nash(current_deck_mean_nash), digits = 3)
 ```
 
 ### Overall mean pick distribution
 
 ```{r, "overall mean Nash spread"}
-kable(reformat_used_nash(caws_mean_nash), digits = 3)
+kable(reformat_used_nash(current_mean_nash), digits = 3)
 ```
 
 # Tournament & evaluation {data-navmenu="Predictions"}
 
 ## Plots {data-width=400}
 
-```{r, "CAWS19 matchup progression"}
-caws_match_predictions <- CAWS19_matches[, .(round, round_match_number,
-                                             player1, player2,
-                                             deck1, deck2,
-                                             victor = factor(ifelse(is.na(victor), "ongoing", ifelse(victor == player1, "P1", "P2")),
-                                                             levels = c("P1", "P2", "ongoing")),
-                                             `P1 win probability` = diag(caws_matchups[player1, player2]))
-                                         ][, c(.SD, .(fairness = 1 - 2*abs(`P1 win probability` - 1/2)))]
+```{r, "current matchup progression"}
+current_match_predictions <- current_matches[, .(round, round_match_number,
+                                                 player1, player2,
+                                                 deck1, deck2,
+                                                 victor = factor(ifelse(is.na(victor), "ongoing", ifelse(victor == player1, "P1", "P2")),
+                                                                 levels = c("P1", "P2", "ongoing")),
+                                                 `P1 win probability` = diag(current_matchups[player1, player2]))
+                                             ][, c(.SD, .(fairness = 1 - 2*abs(`P1 win probability` - 1/2)))]
 ```
 
 ###
 
-```{r, "plot CAWS19 matchup progression"}
-ggplotly(ggplot(caws_match_predictions,
+```{r, "plot current matchup progression"}
+ggplotly(ggplot(current_match_predictions,
                 aes(x = round, y = `P1 win probability`, colour = victor,
                     text = paste0("round: ", round, "\nP1: ", paste(player1, deck1), "\nP2: ", paste(player2, deck2),
                                   "\nP1 win probability: ", round(`P1 win probability`, digits = 3),
@@ -202,8 +197,8 @@ ggplotly(ggplot(caws_match_predictions,
 
 ###
 
-```{r, "plot CAWS19 fairness progression"}
-ggplotly(ggplot(caws_match_predictions,
+```{r, "plot current fairness progression"}
+ggplotly(ggplot(current_match_predictions,
                 aes(x = round, y = `fairness`, colour = victor,
                     text = paste0("round: ", round, "\nP1: ", paste(player1, deck1), "\nP2: ", paste(player2, deck2),
                                   "\nP1 win probability: ", round(`P1 win probability`, digits = 3),
@@ -217,34 +212,34 @@ ggplotly(ggplot(caws_match_predictions,
 
 ## Evaluation {data-width=600}
 
-```{r, "CAWS19 counts"}
-caws_matches_result_tallies <- finished_CAWS19_matches[, .(P1 = as.factor(player1),
-                                                           P2 = as.factor(player2),
-                                                           `P1 win` = victor == player1)
-                                                       ]
-caws_matches_counts <- caws_matches_result_tallies[, .(`P1 wins` = paste(sum(`P1 win`), .N, sep = "/")),
-                                                   by = c("P1", "P2")]
+```{r, "current counts"}
+current_matches_result_tallies <- finished_current_matches[, .(P1 = as.factor(player1),
+                                                               P2 = as.factor(player2),
+                                                               `P1 win` = victor == player1)
+                                                           ]
+current_matches_counts <- current_matches_result_tallies[, .(`P1 wins` = paste(sum(`P1 win`), .N, sep = "/")),
+                                                         by = c("P1", "P2")]
 ```
 
-```{r, "CAWS19 prediction evaluation"}
-caws_matchups_table <- as.data.table(caws_matchups, keep.rownames = "P1")[, c(list(P1 = factor(P1, unique(P1))), .SD),
-                                                                                      .SDcols = setdiff(colnames(caws_matchups), "P1")] %>% 
+```{r, "current prediction evaluation"}
+current_matchups_table <- as.data.table(current_matchups, keep.rownames = "P1")[, c(list(P1 = factor(P1, unique(P1))), .SD),
+                                                                                .SDcols = setdiff(colnames(current_matchups), "P1")] %>% 
   melt(id.vars = "P1", variable.name = "P2", value.name = "matchup")
-caws_lognormal_eval <- caws_matchups_table[caws_matches_counts, on = c("P1", "P2")
-                                                ][order(P1, P2)]
+current_lognormal_eval <- current_matchups_table[current_matches_counts, on = c("P1", "P2")
+                                                 ][order(P1, P2)]
 ```
 
 ### {data-height=200}
 
-```{r, "CAWS19 scores"}
-kable(caws_matchups_table[caws_matches_result_tallies, on = c("P1", "P2")
-                          ][, .(`Brier score` = mean((`P1 win` - matchup)^2))
-                            ][, .(forecast = c("always 5-5", "model"), `Brier score` = c(1/4, `Brier score`))],
+```{r, "current scores"}
+kable(current_matchups_table[current_matches_result_tallies, on = c("P1", "P2")
+                             ][, .(`Brier score` = mean((`P1 win` - matchup)^2))
+                               ][, .(forecast = c("always 5-5", "model"), `Brier score` = c(1/4, `Brier score`))],
       digits = 3)
 ```
 
 ### {data-height=800}
 
-```{r, "CAWS19 evaluation table"}
-formatRound(DT_fill(caws_lognormal_eval[order(-matchup)], dom_filter = TRUE), 3, 3)
+```{r, "current evaluation table"}
+formatRound(DT_fill(current_lognormal_eval[order(-matchup)], dom_filter = TRUE), 3, 3)
 ```

@@ -6,8 +6,8 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-06-13
-  | Data last updated 2020-06-21
+  | Page last updated 2020-06-26
+  | Data last updated 2020-06-26
 ---
 
 ```{r, "setup", include=FALSE}
@@ -116,7 +116,7 @@ knitr::kable(multinash_comps[!is.element(Name, codex::starters$starter),
                              ][order(-Both)], digits = 3L)
 ```
 
-Black and Necromancy are dominant, as expected. Some components rate unexpectedly high, despite being considered weak: Blue starter and Bashing stand out. This is likely to be due to those components not being used often in tournament play: this results in high uncertainty for their strength in the model, so occasionally a simulated sample considers them to be strong components, rating highly in the sample's Nash equilibrium.
+Black and Necromancy are dominant, as expected. Bashing rates unexpectedly high, despite being considered weak. This is likely to be due to it not being used often in tournament play: this results in high uncertainty for its strength in the model, so occasionally a simulated sample considers it to be a strong component, rating highly in the sample's Nash equilibrium.
 
 # Counters
 
