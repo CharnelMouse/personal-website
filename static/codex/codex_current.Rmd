@@ -8,7 +8,7 @@ output:
     theme: bootstrap
     css: tables.css
 author: "Mark Webster"
-date: 2020-07-01
+date: 2020-07-02
 ---
 
 ```{r, "setup", include=FALSE}
@@ -58,9 +58,8 @@ current_valid <- !is.na(current_decks)
 # Completed matches {data-navmenu="Data"}
 
 ```{r, "current matches"}
-current_matches <- matches[tournament == current]
+current_matches <- matches[tournament == current][order(round, round_match_number)]
 ```
-
 
 ```{r, "finished current matches"}
 finished_current_matches <- current_matches[!is.na(victor)]
