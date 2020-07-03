@@ -8,7 +8,7 @@ output:
     theme: bootstrap
     css: tables.css
 author: "Mark Webster"
-date: 2020-07-02
+date: 2020-07-03
 ---
 
 ```{r, "setup", include=FALSE}
@@ -232,16 +232,18 @@ current_lognormal_eval <- current_matchups_table[current_matches_counts, on = c(
                                                  ][order(P1, P2)]
 ```
 
-### {data-height=200}
+### {data-height=220}
 
 ```{r, "current scores"}
 kable(current_matchups_table[current_matches_result_tallies, on = c("P1", "P2")
-                             ][, .(`Brier score` = mean((`P1 win` - matchup)^2))
-                               ][, .(forecast = c("always 5-5", "model"), `Brier score` = c(1/4, `Brier score`))],
+                             ][, .(`prior expected score` = mean(matchup*(1 - matchup)),
+                                   `Brier score` = mean((`P1 win` - matchup)^2))
+                               ][, .(forecast = c("always 5-5", "prior expected score", "model"),
+                                     `Brier score` = c(1/4, `prior expected score`, `Brier score`))],
       digits = 3)
 ```
 
-### {data-height=800}
+### {data-height=780}
 
 ```{r, "current evaluation table"}
 formatRound(DT_fill(current_lognormal_eval[order(-matchup)], dom_filter = TRUE), 3, 3)
