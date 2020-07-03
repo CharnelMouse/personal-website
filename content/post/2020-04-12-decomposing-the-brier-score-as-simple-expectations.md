@@ -1,6 +1,7 @@
 ---
 title: Decomposing the Brier score as simple expectations
 date: 2020-04-16
+lastmod: 2020-07-03
 author: ~
 slug: decomposing-the-brier-score-as-simple-expectations
 categories: []
@@ -53,10 +54,10 @@ $$\begin{align*}
 \mathbb{E}(S(p, Y))
 =&\\, \mathrm{Var}(p(X) - Y) + (\mathbb{E}(p(X)) - \mathbb{E}(Y))^2\\\\
 =&\\, \mathrm{Var}(Y) + (\mathbb{E}(p(X)) - \mathbb{E}(Y))^2 + \mathrm{Var}(p(X))\\\\
-&- 2 \textrm{Cov}(p(X), \mathbb{E}(Y)).
+&- 2 \textrm{Cov}(p(X), Y).
 \end{align*}$$
 
-It's easier to calculate the expectation of the posterior decomposition, using the Tower property:
+We can obtain a clearer decomposition by taking the expectation of the prior decomposition, using the Tower property:
 
 $$\begin{align*}
 \mathbb{E}(S(p, Y))
