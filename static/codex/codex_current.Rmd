@@ -216,20 +216,24 @@ ggplotly(ggplot(current_match_predictions,
          tooltip = c("text"))
 ```
 
-## Evaluation {data-width=600}
+## Evaluation for normal finished matches {data-width=600}
 
 ```{r, "current counts"}
-current_matches_result_tallies <- finished_current_matches[, .(P1 = as.factor(player1),
-                                                               P2 = as.factor(player2),
-                                                               `P1 win` = victor == player1)
+current_matches_result_tallies <- finished_current_matches[victory == "normal",
+                                                           .(P1 = as.factor(player1),
+                                                             P2 = as.factor(player2),
+                                                             `P1 win` = victor == player1)
                                                            ]
 current_matches_counts <- current_matches_result_tallies[, .(`P1 wins` = paste(sum(`P1 win`), .N, sep = "/")),
                                                          by = c("P1", "P2")]
 ```
 
 ```{r, "current prediction evaluation"}
-current_matchups_table <- as.data.table(current_matchups, keep.rownames = "P1")[, c(list(P1 = factor(P1, unique(P1))), .SD),
-                                                                                .SDcols = setdiff(colnames(current_matchups), "P1")] %>% 
+current_matchups_table <- as.data.table(current_matchups,
+                                        keep.rownames = "P1")[, c(list(P1 = factor(P1, unique(P1))),
+                                                                  .SD),
+                                                              .SDcols = setdiff(colnames(current_matchups),
+                                                                                "P1")] %>% 
   melt(id.vars = "P1", variable.name = "P2", value.name = "matchup")
 current_lognormal_eval <- current_matchups_table[current_matches_counts, on = c("P1", "P2")
                                                  ][order(P1, P2)]
