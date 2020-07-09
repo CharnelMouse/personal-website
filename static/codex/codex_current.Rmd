@@ -63,7 +63,10 @@ current_matches <- matches[tournament == current][order(round, round_match_numbe
 
 ```{r, "finished current matches"}
 finished_current_matches <- current_matches[!is.na(victor)]
-DT_fill(finished_current_matches[, c("round", "player1", "player2", "deck1", "deck2", "victor")],
+DT_fill(finished_current_matches[, c("round",
+                                     "player1", "player2",
+                                     "deck1", "deck2",
+                                     "victor", "victory")],
         dom_filter = TRUE)
 ```
 
