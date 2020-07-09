@@ -19,7 +19,7 @@ library(rstan)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2020-07-08")
+one_year_ago <- as.Date("2019-07-08")
 ```
 
 # Simulation configuration
