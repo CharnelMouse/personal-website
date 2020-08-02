@@ -34,13 +34,6 @@ library(plotly)
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r, "DT function to fill containers with single page"}
-DT_fill <- function(df, dom_filter = FALSE) {
-  datatable(df, rownames = FALSE, filter = "top", fillContainer = TRUE,
-            options = list(dom = ifelse(dom_filter, "fti", "ti"), pageLength = nrow(df)))
-}
-```
-
 ```{r, "read model results"}
 vs_results <- readRDS("tidy_current_vs_split.rds")
 ```
@@ -63,11 +56,11 @@ current_matches <- matches[tournament == current][order(round, round_match_numbe
 
 ```{r, "finished current matches"}
 finished_current_matches <- current_matches[!is.na(victor)]
-DT_fill(finished_current_matches[, c("round",
-                                     "player1", "player2",
-                                     "deck1", "deck2",
-                                     "victor", "victory")],
-        dom_filter = TRUE)
+kable(finished_current_matches[, c("round",
+                                   "player1", "player2",
+                                   "deck1", "deck2",
+                                   "victor", "victory")],
+      digits = 3)
 ```
 
 # Matchup plots {data-orientation=rows data-navmenu="Predictions" .no-mobile}
@@ -110,13 +103,13 @@ current_matchups <- apply(current_matchup_array, 2:3, mean)
 ### Deck-only
 
 ```{r, "current deck matchups"}
-formatRound(DT_fill(reformat_mean_matchup(current_deck_matchups, "D"), dom_filter = TRUE), 3:4, 3L)
+kable(reformat_mean_matchup(current_deck_matchups, "D"), digits = 3)
 ```
 
 ### Overall
 
 ```{r, "current overall matchups", include=FALSE}
-formatRound(DT_fill(reformat_mean_matchup(current_matchups, "P"), dom_filter = TRUE), 3:4, 3L)
+kable(reformat_mean_matchup(current_matchups, "P"), digits = 3)
 ```
 
 Hidden until the tournament is finished, to prevent influencing matches.
@@ -253,5 +246,5 @@ kable(current_matchups_table[current_matches_result_tallies, on = c("P1", "P2")
 ### {data-height=780}
 
 ```{r, "current evaluation table"}
-formatRound(DT_fill(current_lognormal_eval[order(-matchup)], dom_filter = TRUE), 3, 3)
+kable(current_lognormal_eval[order(-matchup)], digits = 3)
 ```
