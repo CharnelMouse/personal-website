@@ -8,6 +8,8 @@ author: "Mark Webster"
 date: |
   | Page last updated 2020-06-26
   | Data last updated 2020-07-08
+self_contained: no
+lib_dir: libs
 ---
 
 ```{r, "setup", include=FALSE}

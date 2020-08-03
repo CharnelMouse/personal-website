@@ -7,6 +7,8 @@ output:
       - {title: "Main site", href: "/", align: right}
     theme: bootstrap
     css: tables.css
+    self_contained: no
+    lib_dir: libs
 author: "Mark Webster"
 date: 2020-08-02
 ---
