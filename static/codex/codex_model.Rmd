@@ -6,8 +6,8 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-06-13
-  | Data last updated 2020-08-06
+  | Page last updated 2020-09-05
+  | Data last updated 2020-09-01
 self_contained: no
 lib_dir: libs
 ---
@@ -18,10 +18,11 @@ library(stringr)
 library(DT)
 library(ggplot2)
 library(rstan)
+library(codexdata)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2019-08-06")
+one_year_ago <- as.Date("2019-09-01")
 ```
 
 # Simulation configuration
@@ -35,7 +36,7 @@ Current model sample size is 4000. However, since we use a Markov Chain sampler,
 # Posterior model performance
 
 ```{r, "read model results"}
-results <- readRDS("tidy_vs_split.rds")
+results <- readRDS("website_vs_split.rds")
 ```
 
 ```{r, "read model samples"}
@@ -50,7 +51,7 @@ mean_data <- prepare_match_data_for_modelling(normal_matches, starters, nickname
 attach(mean_data)
 starter_names <- starters
 spec_names <- specs
-starters <- codex::starters
+starters <- codexdata::starters
 ```
 
 ```{r, "Matchup predictions for mean performance models"}
@@ -177,7 +178,7 @@ To examine the matchup between two particular decks, add their components in the
 Currently I've not added the players in the same table to account for skill effects. In the meantime, since player skill tends to have a larger effect than the deck matchup, don't compare the deck matchups to your own match outcomes too strictly, unless you can manually add the effects from the player table (remember to subtract the P2 effect, not add it).
 
 ```{r, "extract vs model matrices"}
-vs_array <- extract_vs_model_array(results)
+vs_array <- results$vs_array
 ```
 
 ```{r, "simple versus table"}

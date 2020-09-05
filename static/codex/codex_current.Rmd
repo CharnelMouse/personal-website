@@ -10,7 +10,7 @@ output:
     self_contained: no
     lib_dir: libs
 author: "Mark Webster"
-date: 2020-08-13
+date: 2020-09-04
 ---
 
 ```{r, "setup", include=FALSE}
@@ -28,6 +28,7 @@ theme_codex <- theme_dark() +
 theme_set(theme_codex)
 library(magrittr)
 library(data.table)
+library(codexdata)
 library(codex)
 library(lpSolve)
 library(knitr)
@@ -36,7 +37,7 @@ knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r, "read model results"}
-vs_results <- readRDS("tidy_current_vs_split.rds")
+vs_results <- readRDS("website_current_vs_split.rds")
 ```
 
 # Entrants {data-navmenu="Data"}

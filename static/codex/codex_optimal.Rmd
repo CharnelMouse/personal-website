@@ -6,7 +6,7 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-06-26
+  | Page last updated 2020-09-05
   | Data last updated 2020-07-08
 self_contained: no
 lib_dir: libs
@@ -18,17 +18,18 @@ library(stringr)
 library(DT)
 library(ggplot2)
 library(rstan)
+library(codexdata)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r, "read model results"}
-results <- readRDS("tidy_vs_split.rds")
+results <- readRDS("website_vs_split.rds")
 ```
 
 ```{r, "extract vs model matrices"}
-vs_array <- extract_vs_model_array(results)
+vs_array <- results$vs_array
 ```
 
 ```{r, "extract monodecks"}
@@ -103,17 +104,17 @@ This deck Nash weight information allows us to give the model's tier list for de
 ```{r, "Nash weight per component"}
 multinash_comps <- melt(reformat_used_nash(multicolour_stoch_nash)[,
                                                                    c(prepare_deck_names_for_modelling(Deck,
-                                                                                                      codex::starters,
+                                                                                                      starters,
                                                                                                       nicknames),
                                                                      .(P1 = P1, P2 = P2, Both = Both))],
                         id.vars = c("P1", "P2", "Both"),
                         variable.name = "Component", value.name = "Name"
 )[,
   lapply(.SD, sum), .SDcols = c("P1", "P2", "Both"), by = Name]
-knitr::kable(multinash_comps[is.element(Name, codex::starters$starter),
+knitr::kable(multinash_comps[is.element(Name, starters$starter),
                              .(Starter = Name, P1, P2, Both)
                              ][order(-Both)], digits = 3L)
-knitr::kable(multinash_comps[!is.element(Name, codex::starters$starter),
+knitr::kable(multinash_comps[!is.element(Name, starters$starter),
                              .(Spec = Name, P1, P2, Both)
                              ][order(-Both)], digits = 3L)
 ```
