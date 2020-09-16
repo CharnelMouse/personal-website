@@ -7,7 +7,7 @@ output:
 author: "Mark Webster"
 date: |
   | Page last updated 2020-09-05
-  | Data last updated 2020-09-01
+  | Data last updated 2020-09-11
 self_contained: no
 lib_dir: libs
 ---
@@ -22,7 +22,7 @@ library(codexdata)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2019-09-01")
+one_year_ago <- as.Date("2019-09-11")
 ```
 
 # Simulation configuration
@@ -209,8 +209,8 @@ datatable(vs_split_table, rownames = FALSE, filter = "top", container = vs_sketc
 Since we're most interested in whether monocolour decks are reasonably balanced, here are matchup results for the monocolour decks. The three black vertical lines in each plot facet show the matchup quartiles.
 
 ```{r, "extract monodecks"}
-mononames <- sort(paste0("Mono", setdiff(starters$starter, "Neutral")))
-monobits <- prepare_deck_names_for_modelling(mononames, starters, nicknames)
+mononames <- sort(paste0("Mono", setdiff(starters[base == "yes", starter], "Neutral")))
+monobits <- components(mononames, starters, nicknames)
 ```
 
 ```{r, "extract vs split model monocolour matchups"}
