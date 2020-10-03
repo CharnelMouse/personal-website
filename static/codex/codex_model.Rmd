@@ -7,7 +7,7 @@ output:
 author: "Mark Webster"
 date: |
   | Page last updated 2020-09-05
-  | Data last updated 2020-09-11
+  | Data last updated 2020-09-17
 self_contained: no
 lib_dir: libs
 ---
@@ -22,7 +22,7 @@ library(codexdata)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2019-09-11")
+one_year_ago <- as.Date("2019-09-17")
 ```
 
 # Simulation configuration
