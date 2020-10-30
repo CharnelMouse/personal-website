@@ -6,8 +6,8 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-09-05
-  | Data last updated 2020-09-17
+  | Page last updated 2020-10-30
+  | Data last updated 2020-10-05
 self_contained: no
 lib_dir: libs
 ---
@@ -22,7 +22,7 @@ library(codexdata)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2019-09-17")
+one_year_ago <- as.Date("2019-10-05")
 ```
 
 # Simulation configuration
@@ -264,6 +264,37 @@ vs_monos_both_print <- vs_monos_both[, .(`P1 win probability` = mean(prob_matchu
                                                          sep = "-"),
                                          fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
 formatRound(datatable(vs_monos_both_print, rownames = FALSE, filter = "top",
+                      options = list(dom = "ftip")), 
+            c(3, 5), c(3, 2))
+```
+
+Finally, we can average over P1's performance instead, showing us how dependent a matchup is on who goes first:
+
+```{r, "average over turn order for monocolour P1 matchups"}
+vs_monos_P1 <- vs_monos[order(P1, P2)
+                        ][, .(P1, P2,
+                              prob_matchup = prob_matchup/2 + vs_monos[, .(P1 = P2, P2 = P1,
+                                                                           prob_matchup)
+                                                                       ][order(P1, P2)
+                                                                         ][, prob_matchup/2])
+                          ][, .(prob_matchup, prob_mean = mean(prob_matchup)),
+                            by = c("P1", "P2")]
+```
+
+```{r, make vs model P1 monocolour matchup plots}
+plot_matchup_samples(vs_monos_P1)
+```
+
+```{r, "print vs model P1 monocolour matchups in order"}
+vs_monos_P1_print <- vs_monos_P1[, .(`P1 win probability` = mean(prob_matchup)), 
+                                 by = c("P1", "P2")
+                                 ][as.character(P1) <= as.character(P2),
+                                   .(P1, P2, `P1 win probability`,
+                                     matchup = paste(format(round(`P1 win probability`, 2)*10, nsmall = 1),
+                                                     format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
+                                                     sep = "-"),
+                                     fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
+formatRound(datatable(vs_monos_P1_print, rownames = FALSE, filter = "top",
                       options = list(dom = "ftip")), 
             c(3, 5), c(3, 2))
 ```
