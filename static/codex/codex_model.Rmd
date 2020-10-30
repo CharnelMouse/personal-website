@@ -46,7 +46,10 @@ sim <- results$tidy_results
 ```{r, "load data", message=FALSE}
 normal_matches <- matches[recorder == "charnel_mouse" &
                             (is.element(victory, c("normal", "")) | is.na(victory)) &
-                            is.na(map) & !is.na(victor)]
+                            is.na(map) & !is.na(victor) &
+                            !endsWith(deck1, "F20") &
+                            !endsWith(deck2, "F20")
+]
 mean_data <- prepare_match_data_for_modelling(normal_matches, starters, nicknames, mean = TRUE)
 attach(mean_data)
 starter_names <- starters
@@ -230,6 +233,37 @@ vs_monos_print <- vs_monos[, .(`P1 win probability` = mean(prob_matchup)),
                                                  sep = "-"),
                                  fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
 formatRound(datatable(vs_monos_print, rownames = FALSE, filter = "top",
+                      options = list(dom = "ftip")), 
+            c(3, 5), c(3, 2))
+```
+
+We can also average over a deck's performance when going first and when going second, to see how the general matchups look:
+
+```{r, "average over turn order for monocolour matchups"}
+vs_monos_both <- vs_monos[order(P1, P2)
+                          ][, .(P1, P2,
+                                prob_matchup = prob_matchup/2 + vs_monos[, .(P1 = P2, P2 = P1,
+                                                                             prob_matchup = 1 - prob_matchup)
+                                                                         ][order(P1, P2)
+                                                                           ][, prob_matchup/2])
+                            ][, .(prob_matchup, prob_mean = mean(prob_matchup)),
+                              by = c("P1", "P2")]
+```
+
+```{r, make vs model symmetric monocolour matchup plots}
+plot_matchup_samples(vs_monos_both)
+```
+
+```{r, "print vs model symmetric monocolour matchups in order"}
+vs_monos_both_print <- vs_monos_both[, .(`P1 win probability` = mean(prob_matchup)), 
+                                     by = c("P1", "P2")
+                                     ][as.character(P1) <= as.character(P2),
+                                       .(P1, P2, `P1 win probability`,
+                                         matchup = paste(format(round(`P1 win probability`, 2)*10, nsmall = 1),
+                                                         format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
+                                                         sep = "-"),
+                                         fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
+formatRound(datatable(vs_monos_both_print, rownames = FALSE, filter = "top",
                       options = list(dom = "ftip")), 
             c(3, 5), c(3, 2))
 ```
