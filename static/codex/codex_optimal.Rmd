@@ -7,7 +7,7 @@ output:
 author: "Mark Webster"
 date: |
   | Page last updated 2020-09-05
-  | Data last updated 2020-07-08
+  | Data last updated 2020-10-05
 self_contained: no
 lib_dir: libs
 ---
@@ -33,7 +33,7 @@ vs_array <- results$vs_array
 ```
 
 ```{r, "extract monodecks"}
-mononames <- sort(paste0("Mono", setdiff(starters$starter, "Neutral")))
+mononames <- sort(paste0("Mono", setdiff(starters$starter[!endsWith(starters$starter, "F20")], "Neutral")))
 ```
 
 # Nash equilibria / Tier list
@@ -103,9 +103,9 @@ This deck Nash weight information allows us to give the model's tier list for de
 
 ```{r, "Nash weight per component"}
 multinash_comps <- melt(reformat_used_nash(multicolour_stoch_nash)[,
-                                                                   c(prepare_deck_names_for_modelling(Deck,
-                                                                                                      starters,
-                                                                                                      nicknames),
+                                                                   c(components(Deck,
+                                                                                starters,
+                                                                                nicknames),
                                                                      .(P1 = P1, P2 = P2, Both = Both))],
                         id.vars = c("P1", "P2", "Both"),
                         variable.name = "Component", value.name = "Name"
@@ -137,7 +137,7 @@ formatRound(datatable(monocounters[order(-`Probability best counter`)], filter =
             3:4, 3L)
 ```
 
-Black is the most-likely-best counter to everyone, except for Purple (Red) and White (Purple).
+Black is the most-likely-best counter to half the monocolour decks. The exceptions are Red (White), Purple (Green), and White (Purple).
 
 ## Multicolour
 
