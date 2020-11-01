@@ -6,7 +6,7 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-09-05
+  | Page last updated 2020-11-01
   | Data last updated 2020-10-05
 self_contained: no
 lib_dir: libs
@@ -119,7 +119,7 @@ knitr::kable(multinash_comps[!is.element(Name, starters$starter),
                              ][order(-Both)], digits = 3L)
 ```
 
-Black and Necromancy are dominant, as expected. Bashing rates unexpectedly high, despite being considered weak. This is likely to be due to it not being used often in tournament play: this results in high uncertainty for its strength in the model, so occasionally a simulated sample considers it to be a strong component, rating highly in the sample's Nash equilibrium.
+Non-Disease Black components are dominant, as expected, and Blood is also very strong. Bashing and Ninjitsu rate unexpectedly high, despite being considered weak. This is likely to be due to them not being used often in tournament play: this results in high uncertainty for their strength in the model, so occasionally a simulated sample considers them to be strong components, rating highly in the sample's Nash equilibrium.
 
 # Counters
 
