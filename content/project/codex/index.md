@@ -2,7 +2,7 @@
 title: Codex
 summary: Statistical modelling of a card game's forum tournament data.
 date: 2020-05-02
-lastmod: 2020-08-13
+lastmod: 2021-01-02
 tags:
 - Codex
 - Side project
@@ -27,6 +27,8 @@ Since the game was balanced around monocolour decks, it's expected that multicol
 My personal results summaries are a bit more detailed than Discourse's post format allows: in particular, I have searchable tables of matchup predictions, since Rmarkdown has an implementation of [JavaScript's DataTables](https://www.datatables.net/). As such, I'm making this site the home for the model, so that I can make my personal summaries available to others.
 
 If I get time, I'll make a proper dashboard to view this information, to include options to investigate performance of different specs against a particular opposing deck.
+
+[Model description](/codex_desc): Description of the problem, the model and data used, and evaluation methods.
 
 [Main model page](../../codex/codex_model.html): Post-hoc model performance on recorded matches; estimates for player skill levels, opposed-pair deck component effects, and monocolour matchups with uncertainty plots; estimate of importance of player skill compared to deck choices.
 
