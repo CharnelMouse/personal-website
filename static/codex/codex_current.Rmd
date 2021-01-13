@@ -1,5 +1,5 @@
 ---
-title: "CAMS20 predictions"
+title: "CAWS20 predictions"
 output: 
   flexdashboard::flex_dashboard:
     navbar:
@@ -10,11 +10,11 @@ output:
     self_contained: no
     lib_dir: libs
 author: "Mark Webster"
-date: 2020-09-04
+date: 2020-01-13
 ---
 
 ```{r, "setup", include=FALSE}
-current <- "CAMS20"
+current <- "CAWS20"
 library(ggplot2)
 theme_codex <- theme_dark() +
   theme(panel.border = element_rect(fill = NA, colour = "grey13"),
@@ -118,17 +118,22 @@ Nash equilibrium is not a good indicator of who's most likely to win the tournam
 
 ```{r, "current mean Nash"}
 current_deck_nash_samples <- get_nash_equilibria(current_deck_matchup_array)
-current_deck_mean_nash <- as.data.table(apply(current_deck_nash_samples, 1:2, mean), 
-                                        keep.rownames = "Player")[, c(.(Player = factor(Player, 
-                                                                                        c("P1", "P2", "Both"))), 
-                                                                      .SD), 
-                                                                  .SDcols = dimnames(current_deck_nash_samples)[[2]]]
+current_deck_mean_nash <- as.data.table(
+  apply(current_deck_nash_samples, 1:2, mean), 
+  keep.rownames = "Player"
+)[
+  ,
+  c(.(Player = factor(Player, c("P1", "P2", "Both"))), .SD), 
+  .SDcols = dimnames(current_deck_nash_samples)[[2]]
+  ]
 current_nash_samples <- get_nash_equilibria(current_matchup_array)
-current_mean_nash <- as.data.table(apply(current_nash_samples, 1:2, mean), 
-                                   keep.rownames = "Player")[, c(.(Player = factor(Player, 
-                                                                                   c("P1", "P2", "Both"))), 
-                                                                 .SD), 
-                                                             .SDcols = dimnames(current_nash_samples)[[2]]]
+current_mean_nash <- as.data.table(
+  apply(current_nash_samples, 1:2, mean), 
+  keep.rownames = "Player"
+)[,
+  c(.(Player = factor(Player, c("P1", "P2", "Both"))), .SD), 
+  .SDcols = dimnames(current_nash_samples)[[2]]
+  ]
 ```
 
 ## Mean Nash win rate {data-height=300}
@@ -164,85 +169,152 @@ kable(reformat_used_nash(current_mean_nash), digits = 3)
 ## Plots {data-width=400}
 
 ```{r, "current matchup progression"}
-current_match_predictions <- current_matches[, .(round, round_match_number,
-                                                 player1, player2,
-                                                 deck1, deck2,
-                                                 victor = factor(ifelse(is.na(victor), "ongoing", ifelse(victor == player1, "P1", "P2")),
-                                                                 levels = c("P1", "P2", "ongoing")),
-                                                 `P1 win probability` = diag(current_matchups[player1, player2]))
-                                             ][, c(.SD, .(fairness = 1 - 2*abs(`P1 win probability` - 1/2)))]
+current_match_predictions <- current_matches[
+  ,
+  .(round, round_match_number,
+    player1, player2,
+    deck1, deck2,
+    victor = factor(
+      ifelse(
+        is.na(victor), "ongoing",
+        ifelse(victor == player1, "P1", "P2")
+      ),
+      levels = c("P1", "ongoing", "P2")
+    ),
+    `P1 win probability` = diag(current_matchups[player1, player2]))
+  ][, c(.SD, .(fairness = 1 - 2*abs(`P1 win probability` - 1/2)))]
 ```
 
 ###
 
 ```{r, "plot current matchup progression"}
-ggplotly(ggplot(current_match_predictions,
-                aes(x = round, y = `P1 win probability`, colour = victor,
-                    text = paste0("round: ", round, "\nP1: ", paste(player1, deck1), "\nP2: ", paste(player2, deck2),
-                                  "\nP1 win probability: ", round(`P1 win probability`, digits = 3),
-                                  "\nfairness: ", round(fairness, digits = 3),
-                                  "\nvictor: ",
-                                  ifelse(victor == "P1", player1, ifelse(victor == "P2", player2, "ongoing"))))) +
-           geom_point() +
-           ylim(0, 1) +
-           scale_x_discrete(limits = seq.int(max(current_match_predictions$round))) +
-           scale_colour_viridis_d(),
-         tooltip = c("text"))
+if (nrow(current_match_predictions) > 0)
+  ggplotly(
+    ggplot(
+      current_match_predictions,
+      aes(
+        x = round, y = `P1 win probability`,
+        colour = victor,
+        text = paste0(
+          "round: ", round,
+          "\nP1: ", paste(player1, deck1),
+          "\nP2: ", paste(player2, deck2),
+          "\nP1 win probability: ", round(`P1 win probability`, digits = 3),
+          "\nfairness: ", round(fairness, digits = 3),
+          "\nvictor: ",
+          ifelse(
+            victor == "P1",
+            player1,
+            ifelse(victor == "P2", player2, "ongoing")
+          )
+        )
+      )
+    ) +
+      geom_point() +
+      ylim(0, 1) +
+      scale_x_discrete(limits = seq.int(max(current_match_predictions$round))) +
+      scale_colour_viridis_d(option = "B", drop = FALSE),
+    tooltip = c("text")
+  )
 ```
+
+`r if(nrow(current_match_predictions) == 0) "waiting for match results..."`
 
 ###
 
 ```{r, "plot current fairness progression"}
-ggplotly(ggplot(current_match_predictions,
-                aes(x = round, y = `fairness`, colour = victor,
-                    text = paste0("round: ", round, "\nP1: ", paste(player1, deck1), "\nP2: ", paste(player2, deck2),
-                                  "\nP1 win probability: ", round(`P1 win probability`, digits = 3),
-                                  "\nfairness: ", round(fairness, digits = 3),
-                                  "\nvictor: ",
-                                  ifelse(victor == "P1", player1, ifelse(victor == "P2", player2, "ongoing"))))) +
-           geom_point() +
-           ylim(0, 1) +
-           scale_x_discrete(limits = seq.int(max(current_match_predictions$round))) +
-           scale_colour_viridis_d(),
-         tooltip = c("text"))
+if (nrow(current_match_predictions) > 0)
+  ggplotly(
+    ggplot(
+      current_match_predictions,
+      aes(
+        x = round, y = `fairness`,
+        colour = victor,
+        text = paste0(
+          "round: ", round,
+          "\nP1: ", paste(player1, deck1),
+          "\nP2: ", paste(player2, deck2),
+          "\nP1 win probability: ", round(`P1 win probability`, digits = 3),
+          "\nfairness: ", round(fairness, digits = 3),
+          "\nvictor: ",
+          ifelse(
+            victor == "P1",
+            player1,
+            ifelse(victor == "P2", player2, "ongoing")
+          )
+        )
+      )
+    ) +
+      geom_point() +
+      ylim(0, 1) +
+      scale_x_discrete(limits = seq.int(max(current_match_predictions$round))) +
+      scale_colour_viridis_d(option = "B", drop = FALSE),
+    tooltip = c("text")
+  )
 ```
+
+`r if(nrow(current_match_predictions) == 0) "waiting for match results..."`
 
 ## Evaluation for normal finished matches {data-width=600}
 
 ```{r, "current counts"}
-current_matches_result_tallies <- finished_current_matches[victory == "normal",
-                                                           .(P1 = as.factor(player1),
-                                                             P2 = as.factor(player2),
-                                                             `P1 win` = victor == player1)
-                                                           ]
-current_matches_counts <- current_matches_result_tallies[, .(`P1 wins` = paste(sum(`P1 win`), .N, sep = "/")),
-                                                         by = c("P1", "P2")]
+if (nrow(current_match_predictions) > 0) {
+current_matches_result_tallies <- finished_current_matches[
+  victory == "normal",
+  .(P1 = as.factor(player1),
+    P2 = as.factor(player2),
+    `P1 win` = victor == player1)
+  ]
+current_matches_counts <- current_matches_result_tallies[
+  ,
+  .(`P1 wins` = paste(sum(`P1 win`), .N, sep = "/")),
+  by = c("P1", "P2")
+  ]
+}
 ```
 
 ```{r, "current prediction evaluation"}
-current_matchups_table <- as.data.table(current_matchups,
-                                        keep.rownames = "P1")[, c(list(P1 = factor(P1, unique(P1))),
-                                                                  .SD),
-                                                              .SDcols = setdiff(colnames(current_matchups),
-                                                                                "P1")] %>% 
-  melt(id.vars = "P1", variable.name = "P2", value.name = "matchup")
-current_lognormal_eval <- current_matchups_table[current_matches_counts, on = c("P1", "P2")
-                                                 ][order(P1, P2)]
+if (nrow(current_match_predictions) > 0) {
+  current_matchups_table <- as.data.table(
+    current_matchups,
+    keep.rownames = "P1"
+  )[,
+    c(list(P1 = factor(P1, unique(P1))), .SD),
+    .SDcols = setdiff(colnames(current_matchups), "P1")
+    ] %>% 
+    melt(id.vars = "P1", variable.name = "P2", value.name = "matchup")
+  current_lognormal_eval <- current_matchups_table[
+    current_matches_counts,
+    on = c("P1", "P2")
+    ][order(P1, P2)]
+}
 ```
 
 ### {data-height=220}
 
 ```{r, "current scores"}
-kable(current_matchups_table[current_matches_result_tallies, on = c("P1", "P2")
-                             ][, .(`prior expected score` = mean(matchup*(1 - matchup)),
-                                   `Brier score` = mean((`P1 win` - matchup)^2))
-                               ][, .(forecast = c("always 5-5", "prior expected score", "model"),
-                                     `Brier score` = c(1/4, `prior expected score`, `Brier score`))],
-      digits = 3)
+if (nrow(current_match_predictions) > 0)
+kable(
+  current_matchups_table[
+    current_matches_result_tallies, on = c("P1", "P2")
+    ][,
+      .(`prior expected score` = mean(matchup*(1 - matchup)),
+        `Brier score` = mean((`P1 win` - matchup)^2))
+      ][,
+        .(forecast = c("always 5-5", "prior expected score", "model"),
+          `Brier score` = c(1/4, `prior expected score`, `Brier score`))],
+  digits = 3
+)
 ```
+
+`r if(nrow(current_match_predictions) == 0) "waiting for match results..."`
 
 ### {data-height=780}
 
 ```{r, "current evaluation table"}
-kable(current_lognormal_eval[order(-matchup)], digits = 3)
+if (nrow(current_match_predictions) > 0) {
+  kable(current_lognormal_eval[order(-matchup)], digits = 3)
+}
 ```
+
+`r if(nrow(current_match_predictions) == 0) "waiting for match results..."`
