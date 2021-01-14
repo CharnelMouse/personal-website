@@ -15,6 +15,7 @@ date: 2020-01-14
 
 ```{r, "setup", include=FALSE}
 current <- "CAWS20"
+dropped_players = "EricF"
 library(ggplot2)
 theme_codex <- theme_dark() +
   theme(panel.border = element_rect(fill = NA, colour = "grey13"),
@@ -44,10 +45,14 @@ vs_results <- readRDS("website_current_vs_split.rds")
 
 ```{r, "current matchups"}
 current_players <- decks[tournament == current, player]
+which_dropped <- match(dropped_players, current_players)
+nondropped_players <- current_players[-which_dropped]
 current_decks <- decks[tournament == current, deck]
+nondropped_decks <- current_decks[-which_dropped]
 current_entries <- data.table(player = current_players, deck = current_decks, stringsAsFactors = TRUE)
 kable(current_entries)
 current_valid <- !is.na(current_decks)
+nondropped_valid <- !is.na(nondropped_decks)
 ```
 
 # Completed matches {data-navmenu="Data"}
@@ -100,6 +105,21 @@ current_deck_matchups <- apply(current_deck_matchup_array, 2:3, mean)
 current_matchups <- apply(current_matchup_array, 2:3, mean)
 ```
 
+```{r, "nondropped mean matchups"}
+nondropped_deck_matchup_array <- get_matchup_array(
+  vs_results,
+  nondropped_decks[nondropped_valid]
+)
+nondropped_matchup_array <- get_matchup_array(
+  vs_results,
+  nondropped_decks[nondropped_valid],
+  nondropped_players[nondropped_valid]
+)
+
+nondropped_deck_matchups <- apply(nondropped_deck_matchup_array, 2:3, mean)
+nondropped_matchups <- apply(nondropped_matchup_array, 2:3, mean)
+```
+
 ### Deck-only
 
 ```{r, "current deck matchups"}
@@ -117,22 +137,22 @@ kable(reformat_mean_matchup(current_matchups, "P"), digits = 3)
 Nash equilibrium is not a good indicator of who's most likely to win the tournament, but it's a quick, simple heuristic to find likely contenders. Weights given are averaged over Nash equilibria calculated for each simulation sample (n = 4000).
 
 ```{r, "current mean Nash"}
-current_deck_nash_samples <- get_nash_equilibria(current_deck_matchup_array)
-current_deck_mean_nash <- as.data.table(
-  apply(current_deck_nash_samples, 1:2, mean), 
+nondropped_deck_nash_samples <- get_nash_equilibria(nondropped_deck_matchup_array)
+nondropped_deck_mean_nash <- as.data.table(
+  apply(nondropped_deck_nash_samples, 1:2, mean), 
   keep.rownames = "Player"
 )[
   ,
   c(.(Player = factor(Player, c("P1", "P2", "Both"))), .SD), 
-  .SDcols = dimnames(current_deck_nash_samples)[[2]]
+  .SDcols = dimnames(nondropped_deck_nash_samples)[[2]]
   ]
-current_nash_samples <- get_nash_equilibria(current_matchup_array)
-current_mean_nash <- as.data.table(
-  apply(current_nash_samples, 1:2, mean), 
+nondropped_nash_samples <- get_nash_equilibria(nondropped_matchup_array)
+nondropped_mean_nash <- as.data.table(
+  apply(nondropped_nash_samples, 1:2, mean), 
   keep.rownames = "Player"
 )[,
   c(.(Player = factor(Player, c("P1", "P2", "Both"))), .SD), 
-  .SDcols = dimnames(current_nash_samples)[[2]]
+  .SDcols = dimnames(nondropped_nash_samples)[[2]]
   ]
 ```
 
@@ -141,13 +161,13 @@ current_mean_nash <- as.data.table(
 ### Deck-only mean win rate
 
 ```{r, "deck mean Nash win"}
-kable(print_nash(current_deck_mean_nash), digits = 3)
+kable(print_nash(nondropped_deck_mean_nash), digits = 3)
 ```
 
 ### Overall mean win rate
 
 ```{r, "overall mean Nash win"}
-kable(print_nash(current_mean_nash), digits = 3)
+kable(print_nash(nondropped_mean_nash), digits = 3)
 ```
 
 ## Mean Nash pick rate {data-height=700}
@@ -155,13 +175,13 @@ kable(print_nash(current_mean_nash), digits = 3)
 ### Deck-only mean pick distribution
 
 ```{r, "deck mean Nash spread"}
-kable(reformat_used_nash(current_deck_mean_nash), digits = 3)
+kable(reformat_used_nash(nondropped_deck_mean_nash), digits = 3)
 ```
 
 ### Overall mean pick distribution
 
 ```{r, "overall mean Nash spread"}
-kable(reformat_used_nash(current_mean_nash), digits = 3)
+kable(reformat_used_nash(nondropped_mean_nash), digits = 3)
 ```
 
 # Tournament & evaluation {data-navmenu="Predictions"}
