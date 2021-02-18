@@ -9,6 +9,7 @@ output:
     css: tables.css
     self_contained: no
     lib_dir: libs
+    mathjax: local
 author: "Mark Webster"
 date: 2020-02-17
 ---
