@@ -209,7 +209,7 @@ current_match_predictions <- current_matches[
 
 ```{r, "plot current matchup progression"}
 if (nrow(current_match_predictions) > 0)
-  ggplotly(
+  (
     ggplot(
       current_match_predictions,
       aes(
@@ -233,9 +233,11 @@ if (nrow(current_match_predictions) > 0)
       geom_point() +
       ylim(0, 1) +
       scale_x_discrete(limits = seq.int(max(current_match_predictions$round))) +
-      scale_colour_viridis_d(option = "B", drop = FALSE),
-    tooltip = c("text")
-  )
+      scale_colour_viridis_d(option = "B", drop = FALSE)
+  ) %>% 
+  ggplotly(tooltip = c("text")) %>%
+  config(displayModeBar = FALSE) %>% 
+  partial_bundle()
 ```
 
 `r if(nrow(current_match_predictions) == 0) "waiting for match results..."`
@@ -244,7 +246,7 @@ if (nrow(current_match_predictions) > 0)
 
 ```{r, "plot current fairness progression"}
 if (nrow(current_match_predictions) > 0)
-  ggplotly(
+  (
     ggplot(
       current_match_predictions,
       aes(
@@ -268,9 +270,11 @@ if (nrow(current_match_predictions) > 0)
       geom_point() +
       ylim(0, 1) +
       scale_x_discrete(limits = seq.int(max(current_match_predictions$round))) +
-      scale_colour_viridis_d(option = "B", drop = FALSE),
-    tooltip = c("text")
-  )
+      scale_colour_viridis_d(option = "B", drop = FALSE)
+  ) %>% 
+  ggplotly(tooltip = c("text")) %>%
+  config(displayModeBar = FALSE) %>%
+  partial_bundle()
 ```
 
 `r if(nrow(current_match_predictions) == 0) "waiting for match results..."`
