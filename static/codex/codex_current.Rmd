@@ -1,5 +1,5 @@
 ---
-title: "CAWS20 predictions"
+title: "XCAPS21 predictions"
 output: 
   flexdashboard::flex_dashboard:
     navbar:
@@ -11,12 +11,12 @@ output:
     lib_dir: libs
     mathjax: local
 author: "Mark Webster"
-date: 2021-03-04
+date: 2021-05-12
 ---
 
 ```{r, "setup", include=FALSE}
-current <- "CAWS20"
-dropped_players = "EricF"
+current <- "XCAPS21"
+dropped_players = character()
 library(ggplot2)
 theme_codex <- theme_dark() +
   theme(panel.border = element_rect(fill = NA, colour = "grey13"),
@@ -45,7 +45,7 @@ vs_results <- readRDS("website_current_vs_split.rds")
 # Entrants {data-navmenu="Data"}
 
 ```{r, "current matchups"}
-current_players <- decks[tournament == current, player]
+current_players <- entries[tournament == current, player]
 which_dropped <- match(dropped_players, current_players)
 nondropped_players <- current_players[-which_dropped]
 current_decks <- decks[tournament == current, deck]
@@ -73,27 +73,29 @@ kable(finished_current_matches[, c("round",
 
 # Matchup plots {data-orientation=rows data-navmenu="Predictions" .no-mobile}
 
-Colours indicate mean matchup, using the [viridis inferno palette](https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html). Vertical lines in each violin plot mark the inner quartiles. Rows are for Player 1, columns are for Player 2. (Currently not shown on mobile devices.)
+Decks were not fixed for this tournament.
+
+<!-- Colours indicate mean matchup, using the [viridis inferno palette](https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html). Vertical lines in each violin plot mark the inner quartiles. Rows are for Player 1, columns are for Player 2. (Currently not shown on mobile devices.) -->
 
 ```{r, "matchup plot with wrap function"}
-plot_samples_wrap <- function(matchup_samples) {
-  plot_matchup_samples(matchup_samples[, .(P1 = `levels<-`(P1, stringr::str_replace_all(levels(P1), "/", " ")),
-                                           P2 = `levels<-`(P2, stringr::str_replace_all(levels(P2), "/", " ")),
-                                           prob_matchup, prob_mean)], 2) +
-    facet_grid(P1~P2, labeller = labeller(P1 = label_wrap_gen(10), P2 = label_wrap_gen(15)))
-}
+# plot_samples_wrap <- function(matchup_samples) {
+#   plot_matchup_samples(matchup_samples[, .(P1 = `levels<-`(P1, stringr::str_replace_all(levels(P1), "/", " ")),
+#                                            P2 = `levels<-`(P2, stringr::str_replace_all(levels(P2), "/", " ")),
+#                                            prob_matchup, prob_mean)], 2) +
+#     facet_grid(P1~P2, labeller = labeller(P1 = label_wrap_gen(10), P2 = label_wrap_gen(15)))
+# }
 ```
 
-### Deck only
+<!-- ### Deck only -->
 
 ```{r, "current lognormal deck matchup samples plot", fig.width=10.5, fig.height=7.5, warning=FALSE}
-plot_samples_wrap(get_matchups(vs_results, current_decks[current_valid]))
+# plot_samples_wrap(get_matchups(vs_results, current_decks[current_valid]))
 ```
 
 ### Overall
 
 ```{r, "current overall matchup samples plot", fig.width=10.5, fig.height=7.5, warning=FALSE, include=TRUE}
-plot_matchup_samples(get_matchups(vs_results, current_decks[current_valid], current_players[current_valid]), 2)
+# plot_matchup_samples(get_matchups(vs_results, current_decks[current_valid], current_players[current_valid]), 2)
 ```
 
 # Matchup tables {data-orientation=rows data-navmenu="Predictions"}
@@ -123,19 +125,25 @@ nondropped_matchups <- apply(nondropped_matchup_array, 2:3, mean)
 
 ### Deck-only
 
+Decks were not fixed for this tournament.
+
 ```{r, "current deck matchups"}
-kable(reformat_mean_matchup(current_deck_matchups, "D"), digits = 3)
+# kable(reformat_mean_matchup(current_deck_matchups, "D"), digits = 3)
 ```
 
 ### Overall
 
+Since decks were not fixed, the overall matchup table would be enormous.
+
 ```{r, "current overall matchups", include=TRUE}
-kable(reformat_mean_matchup(current_matchups, "P"), digits = 3)
+# kable(reformat_mean_matchup(current_matchups, "P"), digits = 3)
 ```
 
 # Nash equilibria for entrants {data-orientation=rows data-navmenu="Predictions"}
 
-Nash equilibrium is not a good indicator of who's most likely to win the tournament, but it's a quick, simple heuristic to find likely contenders. Weights given are averaged over Nash equilibria calculated for each simulation sample (n = 4000).
+<!-- Nash equilibrium is not a good indicator of who's most likely to win the tournament, but it's a quick, simple heuristic to find likely contenders. Weights given are averaged over Nash equilibria calculated for each simulation sample (n = 4000). -->
+
+Decks were not fixed for this tournament, so this section doesn't apply. It'll be back next tournament.
 
 ```{r, "current mean Nash"}
 nondropped_deck_nash_samples <- get_nash_equilibria(nondropped_deck_matchup_array)
@@ -162,13 +170,13 @@ nondropped_mean_nash <- as.data.table(
 ### Deck-only mean win rate
 
 ```{r, "deck mean Nash win"}
-kable(print_nash(nondropped_deck_mean_nash), digits = 3)
+# kable(print_nash(nondropped_deck_mean_nash), digits = 3)
 ```
 
 ### Overall mean win rate
 
 ```{r, "overall mean Nash win"}
-kable(print_nash(nondropped_mean_nash), digits = 3)
+# kable(print_nash(nondropped_mean_nash), digits = 3)
 ```
 
 ## Mean Nash pick rate {data-height=700}
@@ -176,13 +184,13 @@ kable(print_nash(nondropped_mean_nash), digits = 3)
 ### Deck-only mean pick distribution
 
 ```{r, "deck mean Nash spread"}
-kable(reformat_used_nash(nondropped_deck_mean_nash), digits = 3)
+# kable(reformat_used_nash(nondropped_deck_mean_nash), digits = 3)
 ```
 
 ### Overall mean pick distribution
 
 ```{r, "overall mean Nash spread"}
-kable(reformat_used_nash(nondropped_mean_nash), digits = 3)
+# kable(reformat_used_nash(nondropped_mean_nash), digits = 3)
 ```
 
 # Tournament & evaluation {data-navmenu="Predictions"}
@@ -202,7 +210,28 @@ current_match_predictions <- current_matches[
       ),
       levels = c("P1", "ongoing", "P2")
     ),
-    `P1 win probability` = diag(current_matchups[player1, player2]))
+    # `P1 win probability` = diag(current_matchups[player1, player2]))
+    `P1 win probability` = mapply(
+      function(p1, p2, d1, d2) {
+        player_effects1 <- vs_results$tidy_results$player[, p1]
+        player_effects2 <- vs_results$tidy_results$player[, p2]
+        deck_effects <- apply(
+          vs_results$vs_array[
+            ,
+            as.character(codexdata::components(d1, starters)),
+            as.character(codexdata::components(d2, starters))
+          ],
+          1,
+          sum
+        )
+        mean(plogis(player_effects1 - player_effects2 + deck_effects))
+      },
+      player1,
+      player2,
+      deck1,
+      deck2
+    )
+  )
   ][, c(.SD, .(fairness = 1 - 2*abs(`P1 win probability` - 1/2)))]
 ```
 
@@ -233,7 +262,7 @@ if (nrow(current_match_predictions) > 0)
     ) +
       geom_point() +
       ylim(0, 1) +
-      scale_x_discrete(limits = seq.int(max(current_match_predictions$round))) +
+      scale_x_discrete(limits = factor(seq.int(max(current_match_predictions$round)))) +
       scale_colour_viridis_d(option = "B", drop = FALSE)
   ) %>% 
   ggplotly(tooltip = c("text")) %>%
@@ -270,7 +299,7 @@ if (nrow(current_match_predictions) > 0)
     ) +
       geom_point() +
       ylim(0, 1) +
-      scale_x_discrete(limits = seq.int(max(current_match_predictions$round))) +
+      scale_x_discrete(limits = factor(seq.int(max(current_match_predictions$round)))) +
       scale_colour_viridis_d(option = "B", drop = FALSE)
   ) %>% 
   ggplotly(tooltip = c("text")) %>%
@@ -300,18 +329,29 @@ current_matches_counts <- current_matches_result_tallies[
 
 ```{r, "current prediction evaluation"}
 if (nrow(current_match_predictions) > 0) {
-  current_matchups_table <- as.data.table(
-    current_matchups,
-    keep.rownames = "P1"
-  )[,
-    c(list(P1 = factor(P1, unique(P1))), .SD),
-    .SDcols = setdiff(colnames(current_matchups), "P1")
-    ] %>% 
-    melt(id.vars = "P1", variable.name = "P2", value.name = "matchup")
-  current_lognormal_eval <- current_matchups_table[
-    current_matches_counts,
-    on = c("P1", "P2")
-    ][order(P1, P2)]
+  current_score <- current_match_predictions[
+    ,
+    .(
+      forecast = c("always 5-5", "prior expected score", "model"),
+      `Brier score` = c(
+        0.25,
+        mean(`P1 win probability`*(1 - `P1 win probability`)),
+        mean(((victor == player1) - `P1 win probability`)^2)
+      )
+    )
+  ]
+  # current_matchups_table <- as.data.table(
+  #   current_matchups,
+  #   keep.rownames = "P1"
+  # )[,
+  #   c(list(P1 = factor(P1, unique(P1))), .SD),
+  #   .SDcols = setdiff(colnames(current_matchups), "P1")
+  #   ] %>%
+  #   melt(id.vars = "P1", variable.name = "P2", value.name = "matchup")
+  # current_lognormal_eval <- current_matchups_table[
+  #   current_matches_counts,
+  #   on = c("P1", "P2")
+  #   ][order(P1, P2)]
 }
 ```
 
@@ -319,27 +359,22 @@ if (nrow(current_match_predictions) > 0) {
 
 ```{r, "current scores"}
 if (nrow(current_match_predictions) > 0)
-kable(
-  current_matchups_table[
-    current_matches_result_tallies, on = c("P1", "P2")
-    ][,
-      .(`prior expected score` = mean(matchup*(1 - matchup)),
-        `Brier score` = mean((`P1 win` - matchup)^2))
-      ][,
-        .(forecast = c("always 5-5", "prior expected score", "model"),
-          `Brier score` = c(1/4, `prior expected score`, `Brier score`))],
-  digits = 3
-)
+  kable(
+    current_score,
+    digits = 3
+  )
 ```
 
 `r if(nrow(current_match_predictions) == 0) "waiting for match results..."`
 
 ### {data-height=780}
 
+Matchup evaluation not available for this tournament, back next time...
+
 ```{r, "current evaluation table"}
-if (nrow(current_match_predictions) > 0) {
-  kable(current_lognormal_eval[order(-matchup)], digits = 3)
-}
+# if (nrow(current_match_predictions) > 0) {
+#   kable(current_lognormal_eval[order(-matchup)], digits = 3)
+# }
 ```
 
 `r if(nrow(current_match_predictions) == 0) "waiting for match results..."`

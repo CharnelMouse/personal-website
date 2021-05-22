@@ -2,7 +2,7 @@
 title: Codex
 summary: Statistical modelling of a card game's forum tournament data.
 date: 2020-05-02
-lastmod: 2021-01-04
+lastmod: 2021-05-22
 tags:
 - Codex
 - Side project
@@ -32,6 +32,6 @@ If I get time, I'll make a proper dashboard to view this information, to include
 
 [Main model page](../../codex/codex_model.html): Post-hoc model performance on recorded matches; estimates for player skill levels, opposed-pair deck component effects, and monocolour matchups with uncertainty plots; estimate of importance of player skill compared to deck choices.
 
-[Predictions for current tournament](../../codex/codex_current.html): Pre-tournament predictions for completed matches in the current forum tournament, including measures of matchup fairness, and Nash equilibria as a rough indicator of likely winners. Predictions are made using only data available the day before the start of the tournament. The current forum tournament is the Winter Seasonal Swiss (CAWS20).
+[Predictions for current tournament](../../codex/codex_current.html): Pre-tournament predictions for completed matches in the current forum tournament, including measures of matchup fairness, and Nash equilibria as a rough indicator of likely winners. Predictions are made using only data available the day before the start of the tournament. The current forum tournament is the Experimental Spring Seasonal Swiss (XCAPS21), hosted by myself: each round, paired players were given decks considered by the model to be balanced against each other (before accounting for player skill). Since the decks weren't fixed, most of the prediction pages aren't available this time around.
 
 [Optimal picking](../../codex/codex_optimal.html): Nash equilibria for deck choices, and good counters against known opposing decks, as considered by the model. These are expensive to run, and aren't updated as frequently.
