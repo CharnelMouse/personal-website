@@ -6,8 +6,8 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-11-01
-  | Data last updated 2021-03-04
+  | Page last updated 2021-06-03
+  | Data last updated 2021-05-12
 self_contained: no
 lib_dir: libs
 ---
@@ -137,7 +137,9 @@ formatRound(datatable(monocounters[order(-`Probability best counter`)], filter =
             3:4, 3L)
 ```
 
-Black is the most-likely-best counter to half the monocolour decks. The exceptions are Red (White), Purple (Green), and White (Purple).
+Taking the most-likely best counters, we get a four-colour cycle. Black counters the two remaining decks, that aren't the most-likely-best counter to anything.
+
+Black > Purple > White > Red > Black > Blue/Green
 
 ## Multicolour
 
