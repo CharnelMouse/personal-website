@@ -6,7 +6,7 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2021-06-03
+  | Page last updated 2021-06-20
   | Data last updated 2021-06-17
 self_contained: no
 lib_dir: libs
@@ -33,7 +33,13 @@ vs_array <- results$vs_array
 ```
 
 ```{r, "extract monodecks"}
-mononames <- sort(paste0("Mono", setdiff(starters$starter[!endsWith(starters$starter, "F20")], "Neutral")))
+mononames <- sort(paste0(
+  "Mono",
+  setdiff(
+    starters$starter[!endsWith(starters$starter, "F20")],
+    "Neutral"
+  )
+))
 ```
 
 # Nash equilibria / Tier list
@@ -50,10 +56,17 @@ Nash equilibria are given for three types of player: `P1` when known to be going
 vs_mono_array <- get_matchup_array(results, mononames)
 mono_stoch_nash <- get_nash_equilibria(vs_mono_array)
 mono_mean_nash <- apply(mono_stoch_nash, 1:2, mean)
-calibrated_mono_nash <- as.data.table(mono_mean_nash, keep.rownames = "Player")[, c(.(Player = factor(Player, 
-                                                                                                      c("P1", "P2", "Both"))), 
-                                                                                    .SD), 
-                                                                                .SDcols = dimnames(mono_stoch_nash)[[2]]]
+calibrated_mono_nash <- as.data.table(
+  mono_mean_nash,
+  keep.rownames = "Player"
+)[
+  ,
+  c(
+    .(Player = factor(Player, c("P1", "P2", "Both"))), 
+    .SD
+  ), 
+  .SDcols = dimnames(mono_stoch_nash)[[2]]
+]
 ```
 
 ```{r, "calibrated monocolour Nash win"}
@@ -90,10 +103,15 @@ DT_nash(multicolour_stoch_nash, 4L, options = list(dom = "tip"))
 
 ```{r, "Multicolour Nash mean counts for non-zero weights"}
 tidy_multicolour_stoch_nash <- reformat_used_nash(multicolour_stoch_nash)
-multicolour_stoch_nash_zero <- melt(tidy_multicolour_stoch_nash[, lapply(.SD, function(x) sum(x == 0)),
-                                                                .SDcols = c("P1", "P2", "Both")],
-                                    id.vars = character(0), 
-                                    variable.name = "Player", value.name = "# with zero weight")
+multicolour_stoch_nash_zero <- melt(
+  tidy_multicolour_stoch_nash[
+    ,
+    lapply(.SD, function(x) sum(x == 0)),
+    .SDcols = c("P1", "P2", "Both")
+  ],
+  id.vars = character(0), 
+  variable.name = "Player", value.name = "# with zero weight"
+)
 kable(multicolour_stoch_nash_zero)
 ```
 
@@ -102,21 +120,36 @@ Few decks have been eliminated, so there is still a lot of uncertainty.
 This deck Nash weight information allows us to give the model's tier list for deck components with a simple measure: how much Nash weight does each component get?
 
 ```{r, "Nash weight per component"}
-multinash_comps <- melt(reformat_used_nash(multicolour_stoch_nash)[,
-                                                                   c(components(Deck,
-                                                                                starters,
-                                                                                nicknames),
-                                                                     .(P1 = P1, P2 = P2, Both = Both))],
-                        id.vars = c("P1", "P2", "Both"),
-                        variable.name = "Component", value.name = "Name"
-)[,
-  lapply(.SD, sum), .SDcols = c("P1", "P2", "Both"), by = Name]
-knitr::kable(multinash_comps[is.element(Name, starters$starter),
-                             .(Starter = Name, P1, P2, Both)
-                             ][order(-Both)], digits = 3L)
-knitr::kable(multinash_comps[!is.element(Name, starters$starter),
-                             .(Spec = Name, P1, P2, Both)
-                             ][order(-Both)], digits = 3L)
+multinash_comps <- melt(
+  reformat_used_nash(multicolour_stoch_nash)[
+    ,
+    c(
+      components(Deck, starters, nicknames),
+      .(P1 = P1, P2 = P2, Both = Both)
+    )
+  ],
+  id.vars = c("P1", "P2", "Both"),
+  variable.name = "Component", value.name = "Name"
+)[
+  ,
+  lapply(.SD, sum),
+  .SDcols = c("P1", "P2", "Both"),
+  by = Name
+]
+knitr::kable(
+  multinash_comps[
+    is.element(Name, starters$starter),
+    .(Starter = Name, P1, P2, Both)
+  ][order(-Both)],
+  digits = 3L
+)
+knitr::kable(
+  multinash_comps[
+    !is.element(Name, starters$starter),
+    .(Spec = Name, P1, P2, Both)
+  ][order(-Both)],
+  digits = 3L
+)
 ```
 
 Non-Disease Black components are dominant, as expected, and Blood is also very strong. Bashing and Ninjitsu rate unexpectedly high, despite being considered weak. This is likely to be due to them not being used often in tournament play: this results in high uncertainty for their strength in the model, so occasionally a simulated sample considers them to be strong components, rating highly in the sample's Nash equilibrium.
@@ -130,16 +163,25 @@ Averaging over the matchup samples again, we find how likely each deck is to be 
 ## Monocolour
 
 ```{r, "counters for monocolour decks"}
-monocounters <- rbindlist(lapply(setNames(mononames, mononames), counter, vs_array, "mono"),
-                          idcol = "Opponent")
-formatRound(datatable(monocounters[order(-`Probability best counter`)], filter = "top", rownames = FALSE,
-                      options = list(dom = "ftip")),
-            3:4, 3L)
+monocounters <- rbindlist(
+  lapply(setNames(mononames, mononames), counter, vs_array, "mono"),
+  idcol = "Opponent"
+)
+formatRound(
+  datatable(
+    monocounters[order(-`Probability best counter`)],
+    filter = "top",
+    rownames = FALSE,
+    options = list(dom = "ftip")
+  ),
+  3:4,
+  3L
+)
 ```
 
-Taking the most-likely best counters, we get a four-colour cycle. Black counters the two remaining decks, that aren't the most-likely-best counter to anything.
+Taking the most-likely best counters, we get a five-colour cycle. Black counters the remaining deck, MonoGreen, that isn't the most-likely-best counter to anything.
 
-Black > Purple > White > Red > Black > Blue/Green
+Black > Blue > Purple > White > Red > Black > Green
 
 ## Multicolour
 
@@ -149,23 +191,39 @@ We get the following top counter-picks (i.e. highest probability of being best c
 
 ```{r, "multicolour counter-picks for lognormal prior"}
 counters <- readRDS("multicolour_counters.rds")
-formatRound(datatable(counters[, .SD[`Probability best counter` == max(`Probability best counter`)],
-                               by = "Opponent"
-                               ][order(-`Probability best counter`)],
-                      filter = "top", rownames = FALSE,
-                      options = list(dom = "ftip")),
-            3:4, 4L)
+formatRound(
+  datatable(
+    counters[
+      ,
+      .SD[`Probability best counter` == max(`Probability best counter`)],
+      by = "Opponent"
+    ][order(-`Probability best counter`)],
+    filter = "top",
+    rownames = FALSE,
+    options = list(dom = "ftip")
+  ),
+  3:4,
+  4L
+)
 ```
 
 Here is each deck's counter with highest mean win probability:
 
 ```{r, "multicolour highest-probability counter-picks for lognormal prior"}
-formatRound(datatable(counters[, .SD[`Counter win probability` == max(`Counter win probability`)],
-                               by = "Opponent"
-                               ][order(-`Counter win probability`)],
-                      filter = "top", rownames = FALSE,
-                      options = list(dom = "ftip")),
-            3:4, 4L)
+formatRound(
+  datatable(
+    counters[
+      ,
+      .SD[`Counter win probability` == max(`Counter win probability`)],
+      by = "Opponent"
+    ][order(-`Counter win probability`)],
+    filter = "top",
+    rownames = FALSE,
+    options = list(dom = "ftip")
+  ),
+  3:4,
+  4L
+)
 ```
 
 Here are the top counter-picks for a few notable decks.
@@ -173,36 +231,46 @@ Here are the top counter-picks for a few notable decks.
 [Demonology/Necromancy]/Finesse, AKA Nightmare:
 
 ```{r, "deck countering example"}
-knitr::kable(head(counter("Nightmare", vs_array)),
-             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+knitr::kable(
+  head(counter("Nightmare", vs_array)),
+  digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3)
+)
 ```
 
 [Anarchy]/Growth/Strength, AKA Miracle Grow, which can do well against Nightmare:
 
 ```{r, "Miracle Grow counters"}
-knitr::kable(head(counter("Miracle Grow", vs_array)),
-             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+knitr::kable(
+  head(counter("Miracle Grow", vs_array)),
+  digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3)
+)
 ```
 
 [Past]/Anarchy/Peace, AKA PPA:
 
 ```{r, "PPA counters"}
-knitr::kable(head(counter("[Past]/Anarchy/Peace", vs_array)),
-             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+knitr::kable(
+  head(counter("[Past]/Anarchy/Peace", vs_array)),
+  digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3)
+)
 ```
 
 [Discipline/Strength]/Finesse, which has performed well in recent tournaments:
 
 ```{r, "Daymare counters"}
-knitr::kable(head(counter("[Discipline/Strength]/Finesse", vs_array)),
-             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+knitr::kable(
+  head(counter("[Discipline/Strength]/Finesse", vs_array)),
+  digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3)
+)
 ```
 
 [Demonology]/Anarchy/Balance, which has performed well against Miracle Grow:
 
 ```{r, "DAB counters"}
-knitr::kable(head(counter("[Demonology/Anarchy/Balance", vs_array)),
-             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+knitr::kable(
+  head(counter("[Demonology/Anarchy/Balance", vs_array)),
+  digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3)
+)
 ```
 
 ```{r, "best Nash deck"}
@@ -212,20 +280,27 @@ best <- reformat_used_nash(multicolour_stoch_nash)[1, Deck]
 `r best`, the deck with highest weight in the Nash mean:
 
 ```{r, "best's counter"}
-knitr::kable(head(counter(best, vs_array)),
-             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+knitr::kable(
+  head(counter(best, vs_array)),
+  digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3)
+)
 ```
 
 ```{r, "hardest deck to counter"}
-hardest <- counters[, .SD[`Probability best counter` == max(`Probability best counter`)
-                          ][`Counter win probability` == max(`Counter win probability`)],
-                    by = "Opponent"
-                    ][`Counter win probability` == min(`Counter win probability`)]
+hardest <- counters[
+  ,
+  .SD[
+    `Probability best counter` == max(`Probability best counter`)
+  ][`Counter win probability` == max(`Counter win probability`)],
+  by = "Opponent"
+][`Counter win probability` == min(`Counter win probability`)]
 ```
 
 `r hardest$Opponent`, the deck whose most-likely-best counter has the lowest mean win probability:
 
 ```{r, "counters for hardest to counter"}
-knitr::kable(head(counter(as.character(hardest$Opponent), vs_array)),
-             digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3))
+knitr::kable(
+  head(counter(as.character(hardest$Opponent), vs_array)),
+  digits = c(NA, nchar(1/dim(vs_array)[1]) - 2L, 3)
+)
 ```
