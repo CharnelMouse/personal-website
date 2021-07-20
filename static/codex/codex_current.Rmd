@@ -355,10 +355,15 @@ if (nrow(current_match_predictions) > 0) {
         mean(`P1 win probability`*(1 - `P1 win probability`)),
         mean(((victor == "P1") - `P1 win probability`)^2)
       ),
-      uncertainty = observed_overall_freq*(1 - observed_overall_freq),
+      # decomp for prior expected is wrong, should be calculating uncertainty from predictions
+      uncertainty = c(
+        observed_overall_freq*(1 - observed_overall_freq),
+        mean(`P1 win probability`)*(1 - mean(`P1 win probability`)),
+        observed_overall_freq*(1 - observed_overall_freq)
+      ),
       resolution = c(
         0,
-        observed_overall_freq*(1 - observed_overall_freq) -
+        mean(`P1 win probability`)*(1 - mean(`P1 win probability`)) -
           mean(`P1 win probability`*(1 - `P1 win probability`)),
         brier_decomp$resolution
       ),
