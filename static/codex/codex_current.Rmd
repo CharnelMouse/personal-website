@@ -329,6 +329,23 @@ current_matches_counts <- current_matches_result_tallies[
 
 ```{r, "current prediction evaluation"}
 if (nrow(current_match_predictions) > 0) {
+  observed_overall_freq <- current_match_predictions[, mean(victor == "P1")]
+  freq_by_pred <- current_match_predictions[
+    ,
+    .(
+      N = .N,
+      bin_res = .N*(mean(victor == "P1") - observed_overall_freq)^2,
+      bin_rel = sum((`P1 win probability` - mean(victor == "P1"))^2)
+    ),
+    by = .(pred_group = round(`P1 win probability`, 0.05))
+  ]
+  brier_decomp <- freq_by_pred[
+    ,
+    .(
+      resolution = sum(bin_res)/sum(N),
+      reliability = sum(bin_rel)/sum(N)
+    )
+  ]
   current_score <- current_match_predictions[
     ,
     .(
@@ -336,7 +353,19 @@ if (nrow(current_match_predictions) > 0) {
       `Brier score` = c(
         0.25,
         mean(`P1 win probability`*(1 - `P1 win probability`)),
-        mean(((victor == player1) - `P1 win probability`)^2)
+        mean(((victor == "P1") - `P1 win probability`)^2)
+      ),
+      uncertainty = observed_overall_freq*(1 - observed_overall_freq),
+      resolution = c(
+        0,
+        observed_overall_freq*(1 - observed_overall_freq) -
+          mean(`P1 win probability`*(1 - `P1 win probability`)),
+        brier_decomp$resolution
+      ),
+      reliability = c(
+        (1/2 - observed_overall_freq)^2,
+        0,
+        brier_decomp$reliability
       )
     )
   ]
