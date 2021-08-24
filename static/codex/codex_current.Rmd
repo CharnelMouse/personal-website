@@ -59,7 +59,9 @@ nondropped_valid <- !is.na(nondropped_decks)
 # Completed matches {data-navmenu="Data"}
 
 ```{r, "current matches"}
-current_matches <- matches[tournament == current][order(round, round_match_number)]
+current_matches <- fread("website_current_matches.csv")[
+  tournament == current
+][order(round, round_match_number)]
 ```
 
 ```{r, "finished current matches"}
