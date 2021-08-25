@@ -7,7 +7,7 @@ output:
 author: "Mark Webster"
 date: |
   | Page last updated 2020-10-30
-  | Data last updated 2021-06-17
+  | Data last updated 2021-08-24
 self_contained: no
 lib_dir: libs
 ---
@@ -22,7 +22,7 @@ library(codexdata)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2020-06-17")
+one_year_ago <- as.Date("2020-08-24")
 ```
 
 # Simulation configuration
@@ -141,9 +141,10 @@ plot_probability_largest(prob_largest_skill) +
 Here's the same results, narrowed down to players that have played in the last year (i.e. have finished a recorded match on `r one_year_ago` or later):
 
 ```{r, "extract vs split models active player skills"}
-latest_play_dates <- rbind(matches[, .(last = max(end, na.rm = TRUE)), by = "player1"][, .(player = player1, last = last)],
-                           matches[, .(last = max(end, na.rm = TRUE)), by = "player2"][, .(player = player2, last = last)]
-                           )[, .(last = max(last)), by = "player"]
+latest_play_dates <- rbind(
+  matches[, .(last = max(end, na.rm = TRUE)), by = "player1"][, .(player = player1, last = last)],
+  matches[, .(last = max(end, na.rm = TRUE)), by = "player2"][, .(player = player2, last = last)]
+)[, .(last = max(last)), by = "player"]
 active_players <- latest_play_dates[last >= one_year_ago, player]
 ```
 
