@@ -5,7 +5,8 @@ lastmod: 2020-07-03
 author: ~
 slug: decomposing-the-brier-score-as-simple-expectations
 categories: []
-tags: []
+tags:
+- Scoring rules
 subtitle: ''
 summary: ''
 authors: []
