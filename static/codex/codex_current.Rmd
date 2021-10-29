@@ -352,7 +352,7 @@ if (nrow(current_match_predictions) > 0) {
       bin_res = .N*(mean(victor == "P1") - observed_overall_freq)^2,
       bin_rel = sum((`P1 win probability` - mean(victor == "P1"))^2)
     ),
-    by = .(pred_group = round(`P1 win probability`, 0.05))
+    by = .(pred_group = round(`P1 win probability`, 1))
   ]
   brier_decomp <- freq_by_pred[
     ,
@@ -361,8 +361,17 @@ if (nrow(current_match_predictions) > 0) {
       reliability = sum(bin_rel)/sum(N)
     )
   ]
+  prior_decomp <- current_match_predictions[
+    !is.na(victory) & victory == "normal",
+    .(
+      uncertainty = mean(`P1 win probability`)*(1 - mean(`P1 win probability`)),
+      resolution =
+        mean(`P1 win probability`)*(1 - mean(`P1 win probability`)) -
+        mean(`P1 win probability`*(1 - `P1 win probability`))
+    )
+  ]
   current_score <- current_match_predictions[
-    ,
+    !is.na(victory) & victory == "normal",
     .(
       forecast = c("always 5-5", "prior expected score", "model"),
       `Brier score` = c(
@@ -373,18 +382,17 @@ if (nrow(current_match_predictions) > 0) {
       # decomp for prior expected is wrong, should be calculating uncertainty from predictions
       uncertainty = c(
         observed_overall_freq*(1 - observed_overall_freq),
-        NA, # mean(`P1 win probability`)*(1 - mean(`P1 win probability`)),
+        prior_decomp$uncertainty,
         observed_overall_freq*(1 - observed_overall_freq)
       ),
       resolution = c(
         0,
-        NA, # mean(`P1 win probability`)*(1 - mean(`P1 win probability`)) -
-        #   mean(`P1 win probability`*(1 - `P1 win probability`)),
+        prior_decomp$resolution,
         brier_decomp$resolution
       ),
       reliability = c(
         (1/2 - observed_overall_freq)^2,
-        NA, # 0,
+        0,
         brier_decomp$reliability
       )
     )
