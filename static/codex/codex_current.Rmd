@@ -11,7 +11,7 @@ output:
     lib_dir: libs
     mathjax: local
 author: "Mark Webster"
-date: 2021-10-12
+date: 2021-10-28
 ---
 
 ```{r, "setup", include=FALSE}
@@ -217,15 +217,26 @@ current_match_predictions <- current_matches[
       ),
       levels = c("P1", "ongoing", "P2")
     ),
+    victory,
+    outcome = factor(
+      ifelse(
+        is.na(victory) | victory == "normal" | victory == "",
+        ifelse(
+          is.na(victor) | victor == "",
+          "ongoing",
+          ifelse(victor == player1, "P1", "P2")
+        ),
+        victory
+      ),
+      levels = c("P1", "ongoing", "P2", "forfeit", "timeout")
+    ),
     # `P1 win probability` = diag(current_matchups[player1, player2]))
     `P1 win probability` = mapply(
       function(p1, p2, d1, d2) {
-        log_odds_samples <- nondropped_matchup_array[
-          ,
+        nondropped_matchups[
           paste(p1, d1, sep = ":"),
           paste(p2, d2, sep = ":")
         ]
-        mean(plogis(log_odds_samples))
       },
       player1,
       player2,
@@ -245,7 +256,7 @@ if (nrow(current_match_predictions) > 0)
       current_match_predictions,
       aes(
         x = round, y = `P1 win probability`,
-        colour = victor,
+        colour = outcome,
         text = paste0(
           "round: ", round,
           "\nP1: ", paste(player1, deck1),
@@ -282,7 +293,7 @@ if (nrow(current_match_predictions) > 0)
       current_match_predictions,
       aes(
         x = round, y = `fairness`,
-        colour = victor,
+        colour = outcome,
         text = paste0(
           "round: ", round,
           "\nP1: ", paste(player1, deck1),
@@ -330,9 +341,12 @@ current_matches_counts <- current_matches_result_tallies[
 
 ```{r, "current prediction evaluation"}
 if (nrow(current_match_predictions) > 0) {
-  observed_overall_freq <- current_match_predictions[, mean(victor == "P1")]
+  observed_overall_freq <- current_match_predictions[
+    !is.na(victory) & victory == "normal",
+    mean(victor == "P1")
+  ]
   freq_by_pred <- current_match_predictions[
-    ,
+    !is.na(victory) & victory == "normal",
     .(
       N = .N,
       bin_res = .N*(mean(victor == "P1") - observed_overall_freq)^2,
