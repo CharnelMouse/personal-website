@@ -32,6 +32,6 @@ If I get time, I'll make a proper dashboard to view this information, to include
 
 [Main model page](../../codex/codex_model.html): Post-hoc model performance on recorded matches; estimates for player skill levels, opposed-pair deck component effects, and monocolour matchups with uncertainty plots; estimate of importance of player skill compared to deck choices.
 
-[Predictions for current tournament](../../codex/codex_current.html): Pre-tournament predictions for completed matches in the current forum tournament, including measures of matchup fairness, and Nash equilibria as a rough indicator of likely winners. Predictions are made using only data available the day before the start of the tournament. The current forum tournament is the Fall 2021 Round Robin (XCAFRR21).
+[Predictions for current tournament](../../codex/codex_current.html): Pre-tournament predictions for completed matches in the current forum tournament, including measures of matchup fairness, and Nash equilibria as a rough indicator of likely winners. Predictions are made using only data available the day before the start of the tournament. The current forum tournament is the Winter 2021 Swiss (CAWS21).
 
 [Optimal picking](../../codex/codex_optimal.html): Nash equilibria for deck choices, and good counters against known opposing decks, as considered by the model. These are expensive to run, and aren't updated as frequently.
