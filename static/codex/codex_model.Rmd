@@ -17,7 +17,6 @@ library(data.table)
 library(stringr)
 library(DT)
 library(ggplot2)
-library(rstan)
 library(codexdata)
 library(codex)
 library(kableExtra)
@@ -44,13 +43,19 @@ sim <- results$tidy_results
 ```
 
 ```{r, "load data", message=FALSE}
-normal_matches <- matches[recorder == "charnel_mouse" &
-                            (is.element(victory, c("normal", "")) | is.na(victory)) &
-                            is.na(map) & !is.na(victor) &
-                            !endsWith(deck1, "F20") &
-                            !endsWith(deck2, "F20")
+normal_matches <- matches[
+  recorder == "charnel_mouse" &
+    (is.element(victory, c("normal", "")) | is.na(victory)) &
+    is.na(map) & !is.na(victor) &
+    !endsWith(deck1, "F20") &
+    !endsWith(deck2, "F20")
 ]
-mean_data <- prepare_match_data_for_modelling(normal_matches, starters, nicknames, mean = TRUE)
+mean_data <- prepare_match_data_for_modelling(
+  normal_matches, 
+  starters, 
+  nicknames, 
+  mean = TRUE
+)
 attach(mean_data)
 starter_names <- starters
 spec_names <- specs
@@ -61,14 +66,23 @@ starters <- codexdata::starters
 won_effect <- 2*rep(w, each = nrow(sim$matchup)) - 1
 won <- w == 1
 match_names <- codex:::match_names(normal_matches)
-match_res <- colMeans(1/(1 + exp(-won_effect*sim$matchup[, ..match_names, drop = FALSE])))
-matchups_models <- data.table(`match name` = match_names,
-                              `result probability` = match_res,
-                              fairness = 1 - 2*abs(match_res - 1/2))
-formatRound(datatable(matchups_models, rownames = FALSE, filter = "top",
-                      options = list(dom = "tip"),
-                      caption = "Recorded matches with model's expected probability of observed result. Fairness rates the fairness of the matchup, including players, between 0 and 1."), 
-            2:3, 2)
+match_res <- colMeans(plogis(won_effect*sim$matchup[, ..match_names, drop = FALSE]))
+matchups_models <- data.table(
+  `match name` = match_names,
+  `result probability` = match_res,
+  fairness = 1 - 2*abs(match_res - 1/2)
+)
+formatRound(
+  datatable(
+    matchups_models,
+    rownames = FALSE,
+    filter = "top",
+    options = list(dom = "tip"),
+    caption = "Recorded matches with model's expected probability of observed result. Fairness rates the fairness of the matchup, including players, between 0 and 1."
+  ), 
+  2:3,
+  2
+)
 ```
 
 ```{r, "Density plots for predictions for matches with simple decks"}
@@ -81,18 +95,23 @@ ggplot(matchups_models, aes(.data$`result probability`)) +
   xlab("result probability") +
   ggtitle("Post-hoc probability for given match results, by victor turn") +
   facet_wrap(. ~ factor(ifelse(won, "P1 win", "P2 win")))
-matchups_models[, .(`result probability`, fairness,
-                    P1_win_prob = ifelse(won, 
-                                         `result probability`, 
-                                         1 - `result probability`),
-                    rounded = round(ifelse(won, 
-                                           `result probability`, 
-                                           1 - `result probability`),
-                                    1),
-                    win = won)
-                ][, .(rate = ifelse(.N == 0, NA, mean(win)),
-                      prob = ifelse(.N == 0, NA, mean(P1_win_prob))),
-                  by = c("rounded")] %>% 
+matchups_models[
+  ,
+  .(
+    `result probability`,
+    fairness,
+    P1_win_prob = ifelse(won, `result probability`, 1 - `result probability`),
+    rounded = round(ifelse(won, `result probability`, 1 - `result probability`), 1),
+    win = won
+  )
+][
+  ,
+  .(
+    rate = ifelse(.N == 0, NA, mean(win)),
+    prob = ifelse(.N == 0, NA, mean(P1_win_prob))
+  ),
+  by = c("rounded")
+] |> 
   ggplot(aes(.data$prob, .data$rate)) + 
   geom_point() +
   geom_abline(intercept = 0, slope = 1) + 
@@ -104,11 +123,20 @@ matchups_models[, .(`result probability`, fairness,
 If the model predicted matches by saying the most likely winner would win, its performance on the above matches, which were used to fit it, would be `r sum(matchups_models[["result probability"]] > 0.5)` out of `r nrow(matchups_models)` (`r round(mean(matchups_models[["result probability"]] > 0.5)*100, 1)`%). Since it gives a probability of each player winning, we can use proper scoring rules instead (the closer to zero, the better):
 
 ```{r, "model scores"}
-model_log_scores <- matchups_models[, .(`log score` = -log(`result probability`), 
-                                        `Brier score` = (1 - `result probability`)^2)
-                                    ][, .(model = c("predict every match as 5-5", "current model"), 
-                                          `log score` = c(log(2), mean(`log score`)), 
-                                          `Brier score` = c(1/4, mean(`Brier score`)))]
+model_log_scores <- matchups_models[
+  ,
+  .(
+    `log score` = -log(`result probability`), 
+    `Brier score` = (1 - `result probability`)^2
+  )
+][
+  ,
+  .(
+    model = c("predict every match as 5-5", "current model"), 
+    `log score` = c(log(2), mean(`log score`)), 
+    `Brier score` = c(1/4, mean(`Brier score`))
+  )
+]
 kable(model_log_scores, digits = 3)
 ```
 
@@ -117,17 +145,34 @@ kable(model_log_scores, digits = 3)
 Player skills are given as their (additive) effect on their log-odds of winning a match. Skill is currently assumed to not change over time, so given skill levels for long-absent players are narrowly-distributed compared to how certain we'd really be about their current skill level. It'll also favour players who were veterans before the earliest recorded match, because the period where they learned the ropes is not included in their match records.
 
 ```{r, "extract vs split models player skills"}
-vs_sim_skills <- melt(as.data.table(sim$player), id.vars = character(0), 
-                      variable.name = "player", value.name = "player skill")[, .(`player skill`, mean = mean(`player skill`)), 
-                                                                             by = "player"]
+vs_sim_skills <- melt(
+  as.data.table(sim$player), id.vars = character(0), 
+  variable.name = "player", value.name = "player skill"
+)[
+  ,
+  .(`player skill`, mean = mean(`player skill`)), 
+  by = "player"
+]
 vs_split_player_levels <- vs_sim_skills[order(mean), unique(player)]
 
 vs_skill <- vs_sim_skills[, .(player, `player skill`, mean, model = "Versus model")]
-vs_skill_by_forum_skill <- vs_skill[, .(player = factor(player, vs_split_player_levels), `player skill`, mean, model)]
+vs_skill_by_forum_skill <- vs_skill[
+  ,
+  .(
+    player = factor(player, vs_split_player_levels),
+    `player skill`,
+    mean,
+    model
+  )
+]
 ```
 
 ```{r, "plot vs models player skills", fig.height=10, warning=FALSE}
-plot_player_skill(vs_skill_by_forum_skill[is.element(player, players)], "overall", waiver()) +
+plot_player_skill(
+  vs_skill_by_forum_skill[is.element(player, players)],
+  "overall",
+  waiver()
+) +
   ylim(-5, 5)
 ```
 
@@ -142,33 +187,67 @@ Here's the same results, narrowed down to players that have played in the last y
 
 ```{r, "extract vs split models active player skills"}
 latest_play_dates <- rbind(
-  matches[!is.na(end)][, .(last = max(end, na.rm = TRUE)), by = "player1"][, .(player = player1, last = last)],
-  matches[!is.na(end)][, .(last = max(end, na.rm = TRUE)), by = "player2"][, .(player = player2, last = last)]
+  matches[!is.na(end)][
+    ,
+    .(last = max(end, na.rm = TRUE)),
+    by = "player1"
+  ][, .(player = player1, last = last)],
+  matches[!is.na(end)][
+    ,
+    .(last = max(end, na.rm = TRUE)),
+    by = "player2"
+  ][, .(player = player2, last = last)]
 )[, .(last = max(last)), by = "player"]
 active_players <- latest_play_dates[last >= one_year_ago, player]
 ```
 
 ```{r, "plot vs models active player skills", warning=FALSE}
-plot_player_skill(vs_skill_by_forum_skill[is.element(player, active_players)], "overall", waiver()) +
+plot_player_skill(
+  vs_skill_by_forum_skill[is.element(player, active_players)],
+  "overall",
+  waiver()
+) +
   ylim(-5, 5)
 ```
 
 ```{r, "plot probability active player is best"}
-prob_largest_active_skill <- get_probability_largest(sim$player[, is.element(colnames(sim$player), active_players)])
+prob_largest_active_skill <- get_probability_largest(
+  sim$player[, is.element(colnames(sim$player), active_players)]
+)
 plot_probability_largest(prob_largest_active_skill) +
   xlab("player") +
   ylab("probability best active player")
 ```
 
 ```{r, "player skill table"}
-formatRound(datatable(merge(merge(vs_sim_skills[, .(mean = mean[1]), by = "player"
-                                                ][, .(player = as.character(player), `mean skill` = mean)],
-                                  as.data.table(prob_largest_skill)[, .(player = effect, `prob. best (n = 4000)` = `effect size`)],
-                                  on = "player", sort = FALSE),
-                            as.data.table(prob_largest_active_skill)[, .(player = effect, `prob. best active (n = 4000)` = `effect size`)],
-                            on = "player", sort = FALSE, all = TRUE),
-                      rownames = FALSE, filter = "top", options = list(dom = "tip")),
-            2, 3)
+formatRound(
+  datatable(
+    merge(
+      merge(
+        vs_sim_skills[
+          , .(mean = mean[1]), by = "player"
+        ][
+          , .(player = as.character(player), `mean skill` = mean)
+        ],
+        as.data.table(prob_largest_skill)[
+          , .(player = effect, `prob. best (n = 4000)` = `effect size`)
+        ],
+        on = "player", sort = FALSE
+      ),
+      as.data.table(prob_largest_active_skill)[
+        , .(player = effect, `prob. best active (n = 4000)` = `effect size`)
+      ],
+      on = "player",
+      sort = FALSE,
+      all = TRUE
+    ),
+    rownames = FALSE,
+    filter = "top",
+    options = list(dom = "tip")
+  ),
+  2,
+  3
+  )
 ```
 
 # Opposed component effects
@@ -186,25 +265,45 @@ vs_array <- results$vs_array
 ```
 
 ```{r, "simple versus table"}
-vs_split_table <- as.data.table(vs_array)[, .(sample = V1, 
-                                              `P1 component` = factor(V2, c(starter_names, spec_names)),
-                                              `P2 component` = factor(V3, c(starter_names, spec_names)),
-                                              value)
-                                          ][, .(mean = mean(value)),
-                                            by = c("P1 component", "P2 component")
-                                            ][order(`P1 component`, `P2 component`)]
-vs_sketch <- htmltools::withTags(table(class = "display",
-                                       thead(tr(th(colspan = 2, "Deck components"),
-                                                th(rowspan = 2, "Mean Player 1 win log-odds effect")),
-                                             tr(lapply(c("Player 1", "Player 2"), th))),
-                                       tfoot(tr(th("Player 1"), th("Player 2"), th(0)))))
+vs_split_table <- as.data.table(vs_array)[
+  ,
+  .(sample = V1, 
+    `P1 component` = factor(V2, c(starter_names, spec_names)),
+    `P2 component` = factor(V3, c(starter_names, spec_names)),
+    value
+  )
+][
+  ,
+  .(mean = mean(value)),
+  by = c("P1 component", "P2 component")
+][order(`P1 component`, `P2 component`)]
+vs_sketch <- htmltools::withTags(table(
+  class = "display",
+  thead(
+    tr(
+      th(colspan = 2, "Deck components"),
+      th(rowspan = 2, "Mean Player 1 win log-odds effect")
+    ),
+    tr(lapply(c("Player 1", "Player 2"), th))
+  ),
+  tfoot(tr(th("Player 1"), th("Player 2"), th(0)))
+))
 vs_split_JS_code <- "function(row, data, start, end, display) {
   var api = this.api(), data;
   total_mean = api.column(2, {search: 'applied'}).data().reduce( function(a, b) { return a + b}, 0);
   $( api.column(2).footer() ).html('Total: ' + total_mean.toFixed(2) + '; P1 win prob: ' + (100/(1+Math.exp(-total_mean))).toFixed(1) + '%')
   }"
-datatable(vs_split_table, rownames = FALSE, filter = "top", container = vs_sketch, 
-          options = list(dom = "ftip", pageLength = 16, footerCallback = JS(vs_split_JS_code))) %>% 
+datatable(
+  vs_split_table,
+  rownames = FALSE,
+  filter = "top",
+  container = vs_sketch, 
+  options = list(
+    dom = "ftip",
+    pageLength = 16,
+    footerCallback = JS(vs_split_JS_code)
+  )
+) |> 
   formatRound(3, digits = 3)
 ```
 
@@ -226,29 +325,59 @@ plot_matchup_samples(vs_monos)
 ```
 
 ```{r, "print vs model monocolour matchups in order"}
-vs_monos_print <- vs_monos[, .(`P1 win probability` = mean(prob_matchup)), 
-                           by = c("P1", "P2")
-                           ][, .(P1, P2, `P1 win probability`,
-                                 matchup = paste(format(round(`P1 win probability`, 2)*10, nsmall = 1),
-                                                 format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
-                                                 sep = "-"),
-                                 fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
-formatRound(datatable(vs_monos_print, rownames = FALSE, filter = "top",
-                      options = list(dom = "ftip")), 
-            c(3, 5), c(3, 2))
+vs_monos_print <- vs_monos[
+  ,
+  .(`P1 win probability` = mean(prob_matchup)), 
+  by = c("P1", "P2")
+][
+  ,
+  .(
+    P1,
+    P2,
+    `P1 win probability`,
+    matchup = paste(
+      format(round(`P1 win probability`, 2)*10, nsmall = 1),
+      format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
+      sep = "-"
+    ),
+    fairness = 1 - 2*abs(`P1 win probability` - 1/2)
+  )
+]
+formatRound(
+  datatable(
+    vs_monos_print, rownames = FALSE, filter = "top",
+    options = list(dom = "ftip")
+  ),
+  c(3, 5),
+  c(3, 2)
+)
 ```
 
 We can also average over a deck's performance when going first and when going second, to see how the general matchups look:
 
 ```{r, "average over turn order for monocolour matchups"}
-vs_monos_both <- vs_monos[order(P1, P2)
-                          ][, .(P1, P2,
-                                prob_matchup = prob_matchup/2 + vs_monos[, .(P1 = P2, P2 = P1,
-                                                                             prob_matchup = 1 - prob_matchup)
-                                                                         ][order(P1, P2)
-                                                                           ][, prob_matchup/2])
-                            ][, .(prob_matchup, prob_mean = mean(prob_matchup)),
-                              by = c("P1", "P2")]
+vs_monos_both <- vs_monos[
+  order(P1, P2)
+][
+  ,
+  .(
+    P1,
+    P2,
+    prob_matchup = prob_matchup/2 +
+      vs_monos[
+        ,
+        .(P1 = P2, P2 = P1, prob_matchup = 1 - prob_matchup)
+      ][
+        order(P1, P2)
+      ][
+        , prob_matchup/2
+      ]
+  )
+][
+  ,
+  .(prob_matchup, prob_mean = mean(prob_matchup)),
+  by = c("P1", "P2")
+]
 ```
 
 ```{r, make vs model symmetric monocolour matchup plots}
@@ -256,30 +385,59 @@ plot_matchup_samples(vs_monos_both)
 ```
 
 ```{r, "print vs model symmetric monocolour matchups in order"}
-vs_monos_both_print <- vs_monos_both[, .(`P1 win probability` = mean(prob_matchup)), 
-                                     by = c("P1", "P2")
-                                     ][as.character(P1) <= as.character(P2),
-                                       .(P1, P2, `P1 win probability`,
-                                         matchup = paste(format(round(`P1 win probability`, 2)*10, nsmall = 1),
-                                                         format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
-                                                         sep = "-"),
-                                         fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
-formatRound(datatable(vs_monos_both_print, rownames = FALSE, filter = "top",
-                      options = list(dom = "ftip")), 
-            c(3, 5), c(3, 2))
+vs_monos_both_print <- vs_monos_both[
+  ,
+  .(`P1 win probability` = mean(prob_matchup)),
+  by = c("P1", "P2")
+][
+  as.character(P1) <= as.character(P2),
+  .(
+    P1,
+    P2,
+    `P1 win probability`,
+    matchup = paste(
+      format(round(`P1 win probability`, 2)*10, nsmall = 1),
+      format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
+      sep = "-"
+    ),
+    fairness = 1 - 2*abs(`P1 win probability` - 1/2))
+]
+formatRound(
+  datatable(
+    vs_monos_both_print,
+    rownames = FALSE,
+    filter = "top",
+    options = list(dom = "ftip")
+  ),
+  c(3, 5),
+  c(3, 2)
+)
 ```
 
 Finally, we can average over P1's performance instead, showing us how dependent a matchup is on who goes first:
 
 ```{r, "average over turn order for monocolour P1 matchups"}
-vs_monos_P1 <- vs_monos[order(P1, P2)
-                        ][, .(P1, P2,
-                              prob_matchup = prob_matchup/2 + vs_monos[, .(P1 = P2, P2 = P1,
-                                                                           prob_matchup)
-                                                                       ][order(P1, P2)
-                                                                         ][, prob_matchup/2])
-                          ][, .(prob_matchup, prob_mean = mean(prob_matchup)),
-                            by = c("P1", "P2")]
+vs_monos_P1 <- vs_monos[
+  order(P1, P2)
+][
+  ,
+  .(
+    P1,
+    P2,
+    prob_matchup = prob_matchup/2 +
+      vs_monos[
+        , .(P1 = P2, P2 = P1, prob_matchup)
+      ][
+        order(P1, P2)
+      ][
+        , prob_matchup/2
+      ]
+  )
+][
+  ,
+  .(prob_matchup, prob_mean = mean(prob_matchup)),
+  by = c("P1", "P2")
+]
 ```
 
 ```{r, make vs model P1 monocolour matchup plots}
@@ -287,17 +445,34 @@ plot_matchup_samples(vs_monos_P1)
 ```
 
 ```{r, "print vs model P1 monocolour matchups in order"}
-vs_monos_P1_print <- vs_monos_P1[, .(`P1 win probability` = mean(prob_matchup)), 
-                                 by = c("P1", "P2")
-                                 ][as.character(P1) <= as.character(P2),
-                                   .(P1, P2, `P1 win probability`,
-                                     matchup = paste(format(round(`P1 win probability`, 2)*10, nsmall = 1),
-                                                     format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
-                                                     sep = "-"),
-                                     fairness = 1 - 2*abs(`P1 win probability` - 1/2))]
-formatRound(datatable(vs_monos_P1_print, rownames = FALSE, filter = "top",
-                      options = list(dom = "ftip")), 
-            c(3, 5), c(3, 2))
+vs_monos_P1_print <- vs_monos_P1[
+  ,
+  .(`P1 win probability` = mean(prob_matchup)), 
+  by = c("P1", "P2")
+][
+  as.character(P1) <= as.character(P2),
+  .(
+    P1,
+    P2,
+    `P1 win probability`,
+    matchup = paste(
+      format(round(`P1 win probability`, 2)*10, nsmall = 1),
+      format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
+      sep = "-"
+    ),
+    fairness = 1 - 2*abs(`P1 win probability` - 1/2)
+  )
+]
+formatRound(
+  datatable(
+    vs_monos_P1_print,
+    rownames = FALSE,
+    filter = "top",
+    options = list(dom = "ftip")
+  ), 
+  c(3, 5),
+  c(3, 2)
+)
 ```
 
 # Model variances
