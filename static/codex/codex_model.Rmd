@@ -7,7 +7,7 @@ output:
 author: "Mark Webster"
 date: |
   | Page last updated 2020-10-30
-  | Data last updated 2022-01-14
+  | Data last updated 2022-01-19
 self_contained: no
 lib_dir: libs
 ---
@@ -21,7 +21,7 @@ library(codexdata)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2021-01-14")
+one_year_ago <- as.Date("2021-01-19")
 ```
 
 # Simulation configuration
@@ -66,7 +66,7 @@ starters <- codexdata::starters
 won_effect <- 2*rep(w, each = nrow(sim$matchup)) - 1
 won <- w == 1
 match_names <- codex:::match_names(normal_matches)
-match_res <- colMeans(plogis(won_effect*sim$matchup[, ..match_names, drop = FALSE]))
+match_res <- colMeans(1/(1 + exp(-won_effect*sim$matchup[, ..match_names, drop = FALSE])))
 matchups_models <- data.table(
   `match name` = match_names,
   `result probability` = match_res,
