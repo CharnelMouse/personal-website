@@ -6,8 +6,8 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2021-06-20
-  | Data last updated 2022-05-20
+  | Page last updated 2022-09-25
+  | Data last updated 2022-09-14
 self_contained: no
 lib_dir: libs
 ---
@@ -32,13 +32,7 @@ vs_array <- results$vs_array
 ```
 
 ```{r, "extract monodecks"}
-mononames <- sort(paste0(
-  "Mono",
-  setdiff(
-    starters$starter[!endsWith(starters$starter, "F20")],
-    "Neutral"
-  )
-))
+mononames <- codexdata:::monocolour_deck_names
 ```
 
 # Nash equilibria / Tier list
@@ -49,7 +43,9 @@ For a set of decks, we can take the model's simulated matchup samples, determine
 
 Nash equilibria are given for three types of player: `P1` when known to be going first, `P2` when known to be going second, and `Both` for the more common case where the deck is chosen before a coin flip to determine who goes first.
 
-## Monocolour
+## Monocolour {.tabset}
+
+### Original cards
 
 ```{r, "probabilistic versus model equilibrium"}
 vs_mono_array <- get_matchup_array(results, mononames)
@@ -80,13 +76,50 @@ kable(reformat_used_nash(calibrated_mono_nash), digits = 3)
 
 Black is dominant, as expected given that it's known as a strong faction. Other decks have a larger presence when it's known whether you're going first or second. However, there is a lot of uncertainty: even Blue, considered weak due to an especially lopsided matchup against Black, hasn't been cut.
 
-## Multicolour
+### Forum standard cards (v2.1)
+
+```{r, "extract monodecks v2"}
+mononamesv2 <- c("MonoBlackv2", "MonoBlue", "MonoGreenv2", "MonoPurplev2", "MonoRedv2", "MonoWhitev2")
+```
+
+```{r, "probabilistic versus model equilibrium v2"}
+vs_mono_array <- get_matchup_array(results, mononamesv2)
+mono_stoch_nash <- get_nash_equilibria(vs_mono_array)
+mono_mean_nash <- apply(mono_stoch_nash, 1:2, mean)
+calibrated_mono_nash <- as.data.table(
+  mono_mean_nash,
+  keep.rownames = "Player"
+)[
+  ,
+  c(
+    .(Player = factor(Player, c("P1", "P2", "Both"))), 
+    .SD
+  ), 
+  .SDcols = dimnames(mono_stoch_nash)[[2]]
+]
+```
+
+```{r, "calibrated monocolour Nash win v2"}
+kable(print_nash(calibrated_mono_nash), digits = 3)
+```
+
+The chance of winning before determining play order is 50%, as we'd expect if we've calculated things properly.
+
+```{r, "calibrated monocolour Nash details v2"}
+kable(reformat_used_nash(calibrated_mono_nash), digits = 3)
+```
+
+Red is slightly dominant, but the weights are more even than in the original game. Given the low number of matches observed with the forum standard version, this is likely to change as we get more information.
+
+## Multicolour {.tabset}
+
+### Original cards
 
 ```{r, "get used normal deck Nash equilibria"}
 multicolour_stoch_nash <- readRDS("multicolour_nash_vs_split.rds")
 ```
 
-### Win probability
+#### Win probability
 
 ```{r, "calibrated possibly normal Nash datatable win probabilities"}
 kable(print_nash(multicolour_stoch_nash), digits = 3L)
@@ -94,7 +127,7 @@ kable(print_nash(multicolour_stoch_nash), digits = 3L)
 
 The first player seems to be less advantaged than in the monocolour game, though not by much.
 
-### Non-zero deck weights
+#### Non-zero deck weights
 
 ```{r, "calibrated possibly normal Nash datatable"}
 DT_nash(multicolour_stoch_nash, 4L, options = list(dom = "tip"))
@@ -123,7 +156,7 @@ multinash_comps <- melt(
   reformat_used_nash(multicolour_stoch_nash)[
     ,
     c(
-      components(Deck, starters, nicknames),
+      components(Deck, spec_starters, nicknames),
       .(P1 = P1, P2 = P2, Both = Both)
     )
   ],
@@ -159,7 +192,9 @@ Given the opponent's choice of deck, but without knowing who will go first, how 
 
 Averaging over the matchup samples again, we find how likely each deck is to be the best counter-pick to each other deck.
 
-## Monocolour
+## Monocolour {.tabset}
+
+### Original cards
 
 ```{r, "counters for monocolour decks"}
 monocounters <- rbindlist(
@@ -182,7 +217,30 @@ Taking the most-likely best counters, we get a five-colour cycle. Black counters
 
 Black > Blue > Purple > White > Red > Black > Green
 
-## Multicolour
+### Forum standard cards (v2.1)
+
+```{r, "counters for monocolour decks v2"}
+monocountersv2 <- rbindlist(
+  lapply(setNames(mononamesv2, mononamesv2), counter, vs_array, "mono"),
+  idcol = "Opponent"
+)
+formatRound(
+  datatable(
+    monocountersv2[order(-`Probability best counter`)],
+    filter = "top",
+    rownames = FALSE,
+    options = list(dom = "ftip")
+  ),
+  3:4,
+  3L
+)
+```
+
+Taking the most-likely best counters, we see similar counters to the original game, except that Black is considered to be the best counter to White. However, there is less certainty about these being the best counters.
+
+## Multicolour {.tabset}
+
+### Original cards
 
 The full counter table is too large to show here, so here are some highlights.
 

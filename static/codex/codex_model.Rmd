@@ -6,8 +6,8 @@ output:
     css: tables.css
 author: "Mark Webster"
 date: |
-  | Page last updated 2020-10-30
-  | Data last updated 2022-05-20
+  | Page last updated 2022-09-25
+  | Data last updated 2022-09-14
 self_contained: no
 lib_dir: libs
 ---
@@ -21,7 +21,7 @@ library(codexdata)
 library(codex)
 library(kableExtra)
 knitr::opts_chunk$set(echo = FALSE)
-one_year_ago <- as.Date("2021-05-20")
+one_year_ago <- as.Date("2021-09-14")
 ```
 
 # Simulation configuration
@@ -307,9 +307,11 @@ datatable(
   formatRound(3, digits = 3)
 ```
 
-# Monocolour matchups
+# Monocolour matchups {.tabset}
 
 Since we're most interested in whether monocolour decks are reasonably balanced, here are matchup results for the monocolour decks. The three black vertical lines in each plot facet show the matchup quartiles.
+
+## Original cards
 
 ```{r, "extract monodecks"}
 mononames <- sort(paste0("Mono", setdiff(starters[base == "yes", starter], "Neutral")))
@@ -445,6 +447,172 @@ plot_matchup_samples(vs_monos_P1)
 ```
 
 ```{r, "print vs model P1 monocolour matchups in order"}
+vs_monos_P1_print <- vs_monos_P1[
+  ,
+  .(`P1 win probability` = mean(prob_matchup)), 
+  by = c("P1", "P2")
+][
+  as.character(P1) <= as.character(P2),
+  .(
+    P1,
+    P2,
+    `P1 win probability`,
+    matchup = paste(
+      format(round(`P1 win probability`, 2)*10, nsmall = 1),
+      format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
+      sep = "-"
+    ),
+    fairness = 1 - 2*abs(`P1 win probability` - 1/2)
+  )
+]
+formatRound(
+  datatable(
+    vs_monos_P1_print,
+    rownames = FALSE,
+    filter = "top",
+    options = list(dom = "ftip")
+  ), 
+  c(3, 5),
+  c(3, 2)
+)
+```
+
+## Forum standard cards v2.1
+
+```{r, "extract monodecks v2"}
+mononames <- c("MonoBlackv2", "MonoBlue", "MonoGreenv2", "MonoPurplev2", "MonoRedv2", "MonoWhitev2")
+monobits <- components(mononames, starters, nicknames)
+```
+
+```{r, "extract vs split model monocolour matchups v2"}
+vs_monos <- get_matchups(results, mononames)
+```
+
+```{r, make vs model monocolour matchup plots v2}
+plot_matchup_samples(vs_monos)
+```
+
+```{r, "print vs model monocolour matchups in order v2"}
+vs_monos_print <- vs_monos[
+  ,
+  .(`P1 win probability` = mean(prob_matchup)), 
+  by = c("P1", "P2")
+][
+  ,
+  .(
+    P1,
+    P2,
+    `P1 win probability`,
+    matchup = paste(
+      format(round(`P1 win probability`, 2)*10, nsmall = 1),
+      format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
+      sep = "-"
+    ),
+    fairness = 1 - 2*abs(`P1 win probability` - 1/2)
+  )
+]
+formatRound(
+  datatable(
+    vs_monos_print, rownames = FALSE, filter = "top",
+    options = list(dom = "ftip")
+  ),
+  c(3, 5),
+  c(3, 2)
+)
+```
+
+We can also average over a deck's performance when going first and when going second, to see how the general matchups look:
+
+```{r, "average over turn order for monocolour matchups v2"}
+vs_monos_both <- vs_monos[
+  order(P1, P2)
+][
+  ,
+  .(
+    P1,
+    P2,
+    prob_matchup = prob_matchup/2 +
+      vs_monos[
+        ,
+        .(P1 = P2, P2 = P1, prob_matchup = 1 - prob_matchup)
+      ][
+        order(P1, P2)
+      ][
+        , prob_matchup/2
+      ]
+  )
+][
+  ,
+  .(prob_matchup, prob_mean = mean(prob_matchup)),
+  by = c("P1", "P2")
+]
+```
+
+```{r, make vs model symmetric monocolour matchup plots v2}
+plot_matchup_samples(vs_monos_both)
+```
+
+```{r, "print vs model symmetric monocolour matchups in order v2"}
+vs_monos_both_print <- vs_monos_both[
+  ,
+  .(`P1 win probability` = mean(prob_matchup)),
+  by = c("P1", "P2")
+][
+  as.character(P1) <= as.character(P2),
+  .(
+    P1,
+    P2,
+    `P1 win probability`,
+    matchup = paste(
+      format(round(`P1 win probability`, 2)*10, nsmall = 1),
+      format(10 - round(`P1 win probability`, 2)*10, nsmall = 1),
+      sep = "-"
+    ),
+    fairness = 1 - 2*abs(`P1 win probability` - 1/2))
+]
+formatRound(
+  datatable(
+    vs_monos_both_print,
+    rownames = FALSE,
+    filter = "top",
+    options = list(dom = "ftip")
+  ),
+  c(3, 5),
+  c(3, 2)
+)
+```
+
+Finally, we can average over P1's performance instead, showing us how dependent a matchup is on who goes first:
+
+```{r, "average over turn order for monocolour P1 matchups v2"}
+vs_monos_P1 <- vs_monos[
+  order(P1, P2)
+][
+  ,
+  .(
+    P1,
+    P2,
+    prob_matchup = prob_matchup/2 +
+      vs_monos[
+        , .(P1 = P2, P2 = P1, prob_matchup)
+      ][
+        order(P1, P2)
+      ][
+        , prob_matchup/2
+      ]
+  )
+][
+  ,
+  .(prob_matchup, prob_mean = mean(prob_matchup)),
+  by = c("P1", "P2")
+]
+```
+
+```{r, make vs model P1 monocolour matchup plots v2}
+plot_matchup_samples(vs_monos_P1)
+```
+
+```{r, "print vs model P1 monocolour matchups in order v2"}
 vs_monos_P1_print <- vs_monos_P1[
   ,
   .(`P1 win probability` = mean(prob_matchup)), 
