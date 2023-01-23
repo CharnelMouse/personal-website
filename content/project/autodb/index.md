@@ -24,6 +24,8 @@ image:
 - Data can fit in local memory, e.g. in a single R session;
 - R will be used for the analysis, so I might as well keep to the same language.
 
+It took initial inspiration from [Alteryx's autonormalise library for Python](https://github.com/alteryx/autonormalize); I've gone back to the original papers to touch up the algorithm implementations, made some fixes, and added on a few extra features, like allowing for LTK form, and displaying keys in the database and database schema plots. It doesn't include every feature of the Python library, due to having a tighter focus: the Python library is intended to be used within a larger Machine Learning pipeline.
+
 The package takes a single flat table of data -- a *data.frame* in R -- and attempts to convert it into a database in third normal form. This is done using only functional dependences inferable from the given data, so the resulting layout of the data reflects what is present.
 
 This aids with data checks that can be expressed in terms of the structure of the data, rather than the particular values involved. This removes a lot of busywork, allowing the user to more quickly find discrepancies between the data and their understanding of it.
