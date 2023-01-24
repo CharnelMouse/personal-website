@@ -14,7 +14,7 @@ image:
 ---
 
 [Github link](https://github.com/CharnelMouse/autodb)\
-[Main vignette](/autodb/autodb.html)
+[Main vignette](../../autodb_vignette)
 
 *autodb* is an R package I wrote to help with a common problem I have at work:
 
