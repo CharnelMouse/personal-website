@@ -73,12 +73,7 @@ summary(ChickWeight)
 The simplest way to do normalisation is with the `autodb` function:
 
 ```{r}
-db <- autodb(ChickWeight, accuracy = 1, name = "Chick Weights")
-```
-
-The `accuracy` argument expects a number between zero and one, determining what proportion of a data frame's records need to satisfy a given dependency for the algorithm to consider it valid. Setting `accuracy` to one, as done here, limits us to exact dependencies. We'll look at other values later, in the section on approximate dependencies.
-
-```{r}
+db <- autodb(ChickWeight, name = "Chick Weights")
 db
 ```
 
@@ -110,7 +105,12 @@ We can see that `ChickWeight` was split into two relations, with a weight for ea
 Having looked at the final result first, we now look at the individual steps. The first step is to find the (non-trivial and minimal) dependencies present in the given data.frame. There are various ways to do this; the package uses DFD, a depth-first search algorithm. We run this using the `dfd` function, setting `progress` to `TRUE` to see the steps taken:
 
 ```{r}
-deps <- dfd(ChickWeight, 1, progress = TRUE)
+deps <- dfd(ChickWeight, accuracy = 1, progress = TRUE)
+```
+
+The `accuracy` argument expects a number between zero and one, determining what proportion of a data frame's records need to satisfy a given dependency for the algorithm to consider it valid. Setting `accuracy` to one, as done here, limits us to exact dependencies. We'll look at other values later, in the section on approximate dependencies.
+
+```{r}
 deps
 ```
 
@@ -159,7 +159,7 @@ This is a simple set of data, with a single count observation, `Freq`, for each 
 If we use `autodb` again, we get the following database:
 
 ```{r}
-DiagrammeR::grViz(gv(autodb(as.data.frame(Titanic), 1)))
+DiagrammeR::grViz(gv(autodb(as.data.frame(Titanic))))
 ```
 
 Oops! The DFD algorithm found some functional dependencies where the count could be used to determine another attribute. These are clearly spurious: frequency count can't causally determine age, for example. However, the algorithm still finds these dependencies, because the counts are unique often enough to make these dependencies hold in the given data.
@@ -182,7 +182,7 @@ identical(titanic_deps_freqonly, dfd(as.data.frame(Titanic), 1, exclude_class = 
 These can both be used as arguments to `autodb` too:
 
 ```{r}
-DiagrammeR::grViz(gv(autodb(as.data.frame(Titanic), 1, exclude = "Freq")))
+DiagrammeR::grViz(gv(autodb(as.data.frame(Titanic), exclude = "Freq")))
 ```
 
 Generally, excluding numeric attributes as determinants is often useful, because we expect non-integer numbers to be a measurement, not part of a primary key.
@@ -216,7 +216,7 @@ identical(flatten(titanic_deps_freqonly), titanic_deps_filtered2)
 
 ## Adding cross-references
 
-Getting back to our `ChickWeight` example, we now have a database schema, consisting of a list of `relation` schemas. However, we have no information about how these relation schemas are linked to each other. In particular, we have no information about foreign keys, that we would need to join relations back together, to reconstruct the original data frame. We can add this information using `cross_reference`:
+Getting back to our `ChickWeight` example, we now have a database schema, consisting of a list of `relation` schemas. However, we have no information about how these relation schemas are linked to each other. In particular, we have no information about foreign keys. We can add this information using `cross_reference`:
 
 ```{r}
 linked_schema <- cross_reference(schema)
@@ -280,7 +280,7 @@ DiagrammeR::grViz(gv(nudge_schema))
 
 We can see a relation, with many attributes, determined by the effect size ID number, `es_id`. This contains all of the numeric measurements, as expected in the relation for the lowest level in the hierarchy. As also expected, this has a foreign key reference to a relation for study-level information, determined by the study ID number, `study_id`.
 
-However, the publication-level relation this refers to is not determined by the publication ID, `publication_id`, as we would expect. Instead, it is determined by the publication's title: to use the ID, we would need to supplement it with the publication year. This suggests that some publication ID numbers have been erroneously assigned to several publications, which we can easily test:
+However, the publication-level relation this refers to is not determined by the publication ID, `publication_id`, as we would expect; neither is it determined by the publication reference. Instead, it is solely determined by the publication's title: to use the ID, we would need to supplement it with the publication year. This suggests that some publication ID numbers have been erroneously assigned to several publications, which we can easily test:
 
 ```{r nudge_publication_check}
 nudge_database <- decompose(nudge, nudge_schema, "nudge")
@@ -305,7 +305,9 @@ nudge_schema_filtered <- cross_reference(normalise(nudge_deps_filtered, remove_a
 DiagrammeR::grViz(gv(nudge_schema_filtered))
 ```
 
-This looks to be an improvement. However, we can still see some spurious relations involving `reference`. One of these combines it with `type_experiment` to determine `location`, a study-level attribute. The others combine it with another attribute to determine `title`. This is expected, since, in the publication-level relation, the title determines the reference, but not vice versa. This means that there are publications that share a reference:
+This looks to be an improvement. However, we can still see some spurious relations involving `reference`. One of these combines it with `type_experiment` to determine `location`, a study-level attribute. The others combine it with another attribute to determine `title`.
+
+As mentioned, we'd expect the reference to uniqely identify the publication: however, in the publication-level relation, the title determines the reference, but not vice versa. This means that there are publications that share a reference:
 
 ```{r nudge_reference_check}
 nudge_database_filtered <- decompose(nudge, nudge_schema_filtered, "nudge")
@@ -347,27 +349,51 @@ While this is not a dependency we could expect to hold if more data was collecte
 
 Larger datasets can often have entry errors, without an easy way to remove or deal with them. For this reason, we might be interested in "approximate" functional dependencies, which hold after removing a bounded amount of violating records.
 
-Suppose that we normalise `nudge` again, without any manual dependency removal, but allow approximate dependencies, that hold in only `0.99` of the records. Since `nudge` has `r nrow(nudge)`, the dependencies must hold over at least `r ceiling(nrow(nudge)*0.99)` records.
+Suppose that we normalise `nudge` again, without any manual dependency removal, but allowing approximate dependencies. We could cheat, knowing that the questionable data example found above showed there to be two questionable records: one for a duplicated publication ID, and one for a duplicated reference. Since `nudge` has `r nrow(nudge)` records, we can get rid of the resulting questionable dependencies by setting the accuracy to allow two discrepant records.
+
+```{r nudge_approximate_cheat}
+nudge_approx_cheat_database_schema <- dfd(
+  nudge,
+  accuracy = 1 - 2/nrow(nudge),
+  exclude = c("n_study", "n_comparison", "n_control", "n_intervention"),
+  exclude_class = "numeric"
+) |>
+  flatten() |>
+  normalise() |>
+  cross_reference()
+DiagrammeR::grViz(gv(nudge_approx_cheat_database_schema))
+```
+
+Currently `decompose` doesn't account for approximate dependencies, resulting in invalid databases, so here we just work with the database schema.
+
+Compare this to the database schema we arrived at manually:
+- The publication ID, the title, and the reference are considered equivalent, as we'd have originally expected.
+- There is an additional relation, showing `approximation` to be approximately determined by some publication- and study-level attributes, rather than functionally determined at the effect-size level.
+
+Lowering the accuracy results in more dependencies being found, and so in more relations. The number of relations can get very large. For example, suppose we instead set the accuracy to `0.99`, returning any approximate dependencies that hold in at least `r ceiling(nrow(nudge)*0.99)` records.
 
 ```{r nudge_approximate}
-nudge_approx_database <- autodb(
+nudge_approx_database_schema <- dfd(
   nudge,
   accuracy = 0.99,
   exclude = c("n_study", "n_comparison", "n_control", "n_intervention"),
   exclude_class = "numeric"
-)
-DiagrammeR::grViz(gv(nudge_approx_database))
+) |>
+  flatten() |>
+  normalise() |>
+  cross_reference()
+DiagrammeR::grViz(gv(nudge_approx_database_schema))
 ```
 
 This is a little overwhelming, so we'll use a utility function called `reduce`. This finds the relation with the most records, which can be considered as the "main" relation, and removes any relations not linked to it by foreign key references. Reducing the approximate database gives us this set of relations:
 
 ```{r nudge_approximate_reduced}
-DiagrammeR::grViz(gv(reduce(nudge_approx_database)))
+DiagrammeR::grViz(gv(reduce(nudge_approx_database_schema, "es_id")))
 ```
 
 Questionable intermediate relations aside, we can see that there is now a publication-level relation with the publication ID as a key, since it determines the publication attributes once we remove one of the duplicate records we discovered before.
 
-`reduce` needs to be used with caution: while the relations it removes are often spurious, it's possible to find databases where relations not linked to the main relation by foreign key references are required to rejoin to the original data frame, so reduction can remove necessary relations. Its intent is mostly to make glancing at database plots more manageable.
+`reduce` can also be used on databases. It needs to be used with caution: while the relations it removes are often spurious, it's possible to find databases where relations not linked to the main relation by foreign key references are required to rejoin to the original data frame, so reduction can remove necessary relations. Its intent is mostly to make glancing at database plots more manageable.
 
 ## Avoidable attributes
 
@@ -442,7 +468,7 @@ df_nas
 The package currently treats `NA` as just another value, with no special treatment for normalisation or rejoining, resulting in no splitting of the above data frame:
 
 ```{r example_data_frame_with_NAs_autodb}
-DiagrammeR::grViz(gv(autodb(df_nas, 1)))
+DiagrammeR::grViz(gv(autodb(df_nas)))
 ```
 
 In this case, a missing death date represents no death, and we would prefer to move death information to a separate relation, containing only patients with a death date, in this case patient 3:
