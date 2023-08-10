@@ -58,7 +58,7 @@ Good database design is a hard and involved process, which requires a strong gra
 
 ## To third normal form
 
-`autodb` gets a given data.frame to third normal form: every attribute depends on the whole key(s), and non-key attributes depend on nothing but the key(s). This was chosen because there is an existing algorithm, Bernstein's synthesis, for normalising to third normal form, and because it's the highest normal form that is attainable with arbitrary original data frames. There is an additional enhancement available as an option: see the section on avoidable attributes for more details.
+`autodb` gets a given data frame to third normal form: every attribute depends on the whole key(s), and non-key attributes depend on nothing but the key(s). This was chosen because there is an existing algorithm, Bernstein's synthesis, for normalising to third normal form, and because it's the highest normal form that is attainable with arbitrary original data frames. There is an additional enhancement available as an option: see the section on avoidable attributes for more details.
 
 # Simple examples
 
@@ -100,12 +100,12 @@ We can see that `ChickWeight` was split into two relations, with a weight for ea
 
 `gv` also has methods for `data.frame`, and for `database_schema`, which is introduced later.
 
-## Finding functional dependencies with DFD
+## Finding functional dependencies
 
-Having looked at the final result first, we now look at the individual steps. The first step is to find the (non-trivial and minimal) dependencies present in the given data.frame. There are various ways to do this; the package uses DFD, a depth-first search algorithm. We run this using the `dfd` function, setting `progress` to `TRUE` to see the steps taken:
+Having looked at the final result first, we now look at the individual steps. The first step is to find the (non-trivial and minimal) dependencies present in the given data frame. There are various ways to do this; by default, the package uses DFD, a depth-first search algorithm. We run this using the `discover` function, setting `progress` to `TRUE` to see the steps taken:
 
 ```{r}
-deps <- dfd(ChickWeight, accuracy = 1, progress = TRUE)
+deps <- discover(ChickWeight, accuracy = 1, progress = TRUE)
 ```
 
 The `accuracy` argument expects a number between zero and one, determining what proportion of a data frame's records need to satisfy a given dependency for the algorithm to consider it valid. Setting `accuracy` to one, as done here, limits us to exact dependencies. We'll look at other values later, in the section on approximate dependencies.
@@ -116,14 +116,22 @@ deps
 
 After simplifying the data to something quicker to iterate over -- specifically, by converting all attributes to have integer values -- the algorithm takes each attribute in turn as a possible dependent, and finds sets of the other attributes that determine it.
 
-The result is a list of functional dependencies, in the format `determinant set -> dependent`, with an attribute named `attrs` that gives all the attribute names in their original order.
+The result is a list of functional dependencies, in the format `determinant set -> dependent`, with an attribute named `attrs_order` that gives all the attribute names in their original order. Each of these three parts has its own (generic) extraction function:
+
+```{r}
+detset(deps)
+dependent(deps)
+attrs_order(deps)
+```
+
+The former two, especially, are useful for filtering, as we'll see later.
 
 ## Normalisation
 
 Now that we have a list of discovered dependencies, we can construct a database schema, where the relation schemas are normalised to third normal form. This is done using a version of Bernstein's synthesis.
 
 ```{r}
-schema <- normalise(deps)
+schema <- synthesise(deps)
 schema
 ```
 
@@ -155,19 +163,19 @@ DiagrammeR::grViz(gv(autodb(as.data.frame(Titanic))))
 
 Oops! The DFD algorithm found some functional dependencies where the count could be used to determine another attribute. These are clearly spurious: frequency count can't causally determine age, for example. However, the algorithm still finds these dependencies, because the counts are unique often enough to make these dependencies hold in the given data.
 
-There are two approaches we can take to eliminate these spurious dependencies: not letting them be detected in the first place, and removing them before using `normalise`.
+There are two approaches we can take to eliminate these spurious dependencies: not letting them be detected in the first place, and removing them before using `synthesise`.
 
-To stop them being detected, we can put constraints on what is discovered by `dfd`: we can ask for certain attributes to not be considered as determinants, or we can exclude attributes that inherit from certain classes. In this example, we could exclude `Freq` from being considered:
+To stop them being detected, we can put constraints on what is discovered by `discover`: we can ask for certain attributes to not be considered as determinants, or we can exclude attributes that inherit from certain classes. In this example, we could exclude `Freq` from being considered:
 
 ```{r}
-titanic_deps_freqonly <- dfd(as.data.frame(Titanic), 1, exclude = "Freq")
+titanic_deps_freqonly <- discover(as.data.frame(Titanic), 1, exclude = "Freq")
 titanic_deps_freqonly
 ```
 
 Alternatively, we could exclude all attributes that inherit from "numeric":
 
 ```{r}
-identical(titanic_deps_freqonly, dfd(as.data.frame(Titanic), 1, exclude_class = "numeric"))
+identical(titanic_deps_freqonly, discover(as.data.frame(Titanic), 1, exclude_class = "numeric"))
 ```
 
 These can both be used as arguments to `autodb` too:
@@ -181,17 +189,14 @@ Generally, excluding numeric attributes as determinants is often useful, because
 Alternatively, we could remove unwanted dependencies before using `decompose`. Here are the found dependencies, if we don't exclude anything:
 
 ```{r}
-titanic_deps <- dfd(as.data.frame(Titanic), 1)
+titanic_deps <- discover(as.data.frame(Titanic), 1)
 titanic_deps
 ```
 
 We can remove the unwanted dependencies, where `Age` is the dependent:
 
 ```{r}
-titanic_deps_filtered <- Filter(
-  function(dep) dep[[2]] == "Freq", 
-  titanic_deps
-)
+titanic_deps[dependent(titanic_deps) == "Freq"]
 ```
 
 ## Adding cross-references
@@ -201,6 +206,12 @@ Getting back to our `ChickWeight` example, we now have a database schema, consis
 ```{r}
 linked_schema <- cross_reference(schema)
 linked_schema
+```
+
+We could also have used `normalise`, instead of `synthesise` and `cross_reference` separately:
+
+```{r}
+normalise(deps)
 ```
 
 Plotting this updated database schema shows the same relation schemas as before, linked together by foreign key references:
@@ -248,13 +259,13 @@ This is the data set for a meta-analysis, looking at the effectiveness of "nudge
 Getting full dependency information for this relation can take a long time, so here we search for a reduced set, not considering numeric or sample size attributes as determinants:
 
 ```{r nudge_database}
-nudge_deps <- dfd(
+nudge_deps <- discover(
   nudge,
   accuracy = 1,
   exclude = c("n_study", "n_comparison", "n_control", "n_intervention"),
   exclude_class = "numeric"
 )
-nudge_schema <- cross_reference(normalise(nudge_deps, remove_avoidable = TRUE))
+nudge_schema <- normalise(nudge_deps, remove_avoidable = TRUE)
 DiagrammeR::grViz(gv(nudge_schema))
 ```
 
@@ -273,20 +284,33 @@ knitr::kable(subset(nudge_title_relation, publication_id %in% nudge_pid_duplicat
 
 This would also explain why the publication ID appears in several other relations, that look likely to be spurious.
 
-Since the publication ID can't be trusted, we could consider removing the attribute. Here, we'll keep it, but remove all functional dependencies where it is in the determinant set, to get the same effect without re-running DFD:
+Since the publication ID can't be trusted, we could consider removing the attribute, and re-running `discover`. While fine in this case, this is best avoided if running `discover` on a given data frame is expensive.
+
+Another option is to simply remove the offending relations in the current schemas:
+
+```{r nudge_publication_badfilter}
+nudge_schema_relfiltered <- nudge_schema[!grepl("publication_id", names(nudge_schema), fixed = TRUE)]
+```
+
+Subsetting a database schema also removes any foreign key relationships involving removed schemas, so the resulting schema is still valid. However, any foreign key reference chains with removed schemas in the middle are broken. Amongst others, in this case we lose the relationship between the three relations for the three hierarchical data levels:
+
+```{r nudge_publication_badfilter_gv}
+DiagrammeR::grViz(gv(nudge_schema_relfiltered))
+```
+
+We also lose any functional dependencies partially implied by the removed schemas (i.e. transitive dependencies, where removing these schemas' dependencies means that they're no longer transitive). This is an issue if those partially-implied dependencies aren't spurious, because we throw away non-spurious information about the data's structure.
+
+The better option is to remove all functional dependencies where the publication ID is in the determinant set, to get the same effect without re-running `discover`:
 
 ```{r nudge_filter}
-nudge_deps_filtered <- Filter(
-  function(fd) !is.element("publication_id", fd[[1]]),
-  nudge_deps
-)
-nudge_schema_filtered <- cross_reference(normalise(nudge_deps_filtered, remove_avoidable = TRUE))
+nudge_deps_filtered <- nudge_deps[!vapply(detset(nudge_deps), is.element, logical(1), el = "publication_id")]
+nudge_schema_filtered <- normalise(nudge_deps_filtered, remove_avoidable = TRUE)
 DiagrammeR::grViz(gv(nudge_schema_filtered))
 ```
 
-This looks to be an improvement. However, we can still see some spurious relations involving `reference`. One of these combines it with `type_experiment` to determine `location`, a study-level attribute. The others combine it with another attribute to determine `title`.
+The resulting database schema looks to be an improvement. However, we can still see some spurious relations involving `reference`. One of these combines it with `type_experiment` to determine `location`, a study-level attribute. The others combine it with another attribute to determine `title`.
 
-As mentioned, we'd expect the reference to uniqely identify the publication: however, in the publication-level relation, the title determines the reference, but not vice versa. This means that there are publications that share a reference:
+As mentioned, we'd expect the reference to uniquely identify the publication: however, in the publication-level relation, the title determines the reference, but not vice versa. This means that there are publications that share a reference:
 
 ```{r nudge_reference_check}
 nudge_database_filtered <- decompose(nudge, nudge_schema_filtered, "nudge")
@@ -302,11 +326,11 @@ BETA is the Behavioural Economics Team of the Australian Government, so it's not
 While the reference is useful, the relations mentioned above are not, so we'll also remove functional dependencies with the reference determining something apart from the year:
 
 ```{r nudge_filter2}
-nudge_deps_filtered2 <- Filter(
-  function(fd) !is.element("reference", fd[[1]]) || fd[[2]] == "year",
-  nudge_deps_filtered
-)
-nudge_schema_filtered2 <- cross_reference(normalise(nudge_deps_filtered2, remove_avoidable = TRUE))
+nudge_deps_filtered2 <- nudge_deps_filtered[
+  !vapply(detset(nudge_deps_filtered), is.element, logical(1), el = "reference") |
+    dependent(nudge_deps_filtered) == "year"
+]
+nudge_schema_filtered2 <- normalise(nudge_deps_filtered2, remove_avoidable = TRUE)
 DiagrammeR::grViz(gv(nudge_schema_filtered2))
 ```
 
@@ -319,6 +343,8 @@ DiagrammeR::grViz(gv(nudge_database_filtered2))
 
 While this is not a dependency we could expect to hold if more data was collected, it's a reasonable dependency for the given data set, which won't be added to.
 
+It's also notable for the previous discussion about information lost if we subset the database schema: the relation isn't present in the original schema because the full set of functional dependencies make its implied dependency transitive, but removing spurious dependencies made it no longer transitive, so it's directly represented in a new relation. Specifically, the previous schema, `nudge_schema_filtered`, has relations showing that `title -> reference` and `reference, type_experiment -> location`, and removing the latter makes `title, type_experiment -> location` no longer transitive. Subsetting the schema, instead of removing the spurious dependencies, would also lose this transitive dependency, so we would not see the new relation.
+
 (As far as I'm aware, the publication ID error mentioned above would not have affected the meta-analysis results.)
 
 # Other features
@@ -330,34 +356,33 @@ Larger datasets can often have entry errors, without an easy way to remove or de
 Suppose that we normalise `nudge` again, without any manual dependency removal, but allowing approximate dependencies. We could cheat, knowing that the questionable data example found above showed there to be two questionable records: one for a duplicated publication ID, and one for a duplicated reference. Since `nudge` has `r nrow(nudge)` records, we can get rid of the resulting questionable dependencies by setting the accuracy to allow two discrepant records.
 
 ```{r nudge_approximate_cheat}
-nudge_approx_cheat_database_schema <- dfd(
+nudge_approx_cheat_database_schema <- discover(
   nudge,
   accuracy = 1 - 2/nrow(nudge),
   exclude = c("n_study", "n_comparison", "n_control", "n_intervention"),
   exclude_class = "numeric"
 ) |>
-  normalise() |>
-  cross_reference()
+  normalise()
 DiagrammeR::grViz(gv(nudge_approx_cheat_database_schema))
 ```
 
 Currently `decompose` doesn't account for approximate dependencies, resulting in invalid databases, so here we just work with the database schema.
 
 Compare this to the database schema we arrived at manually:
+
 - The publication ID, the title, and the reference are considered equivalent, as we'd have originally expected.
 - There is an additional relation, showing `approximation` to be approximately determined by some publication- and study-level attributes, rather than functionally determined at the effect-size level.
 
 Lowering the accuracy results in more dependencies being found, and so in more relations. The number of relations can get very large. For example, suppose we instead set the accuracy to `0.99`, returning any approximate dependencies that hold in at least `r ceiling(nrow(nudge)*0.99)` records.
 
 ```{r nudge_approximate}
-nudge_approx_database_schema <- dfd(
+nudge_approx_database_schema <- discover(
   nudge,
   accuracy = 0.99,
   exclude = c("n_study", "n_comparison", "n_control", "n_intervention"),
   exclude_class = "numeric"
 ) |>
-  normalise() |>
-  cross_reference()
+  normalise()
 DiagrammeR::grViz(gv(nudge_approx_database_schema))
 ```
 
@@ -369,7 +394,7 @@ DiagrammeR::grViz(gv(reduce(nudge_approx_database_schema, "es_id")))
 
 Questionable intermediate relations aside, we can see that there is now a publication-level relation with the publication ID as a key, since it determines the publication attributes once we remove one of the duplicate records we discovered before.
 
-`reduce` can also be used on databases. It needs to be used with caution: while the relations it removes are often spurious, it's possible to find databases where relations not linked to the main relation by foreign key references are required to rejoin to the original data frame, so reduction can remove necessary relations. Its intent is mostly to make glancing at database plots more manageable.
+`reduce` can also be used on databases, where it considers each relation with the largest number of records as a main table. It needs to be used with caution: while the relations it removes are often spurious, it's possible to find databases where relations not linked to the main relation by foreign key references are required to rejoin to the original data frame, so reduction can remove necessary relations. Its intent is mostly to make glancing at database plots more manageable.
 
 ## Avoidable attributes
 
@@ -393,7 +418,7 @@ avoid_deps <- functional_dependency(
   attrs = c("A", "B", "C", "D", "E")
 )
 avoid_deps
-avoid_schema <- cross_reference(normalise(avoid_deps))
+avoid_schema <- normalise(avoid_deps)
 DiagrammeR::grViz(gv(avoid_schema))
 ```
 
@@ -402,10 +427,10 @@ Attributes `A` and `B` are equivalent, since relation `A` has them both as a key
 We can have this removal of avoidable attributes done automatically, using the `remove_avoidable` flag for `normalise`:
 
 ```{r avoid_remove}
-avoid_schema_removed <- cross_reference(normalise(
+avoid_schema_removed <- normalise(
   avoid_deps,
   remove_avoidable = TRUE
-))
+)
 DiagrammeR::grViz(gv(avoid_schema_removed))
 ```
 
@@ -415,7 +440,7 @@ This schema is now in LTK form, with no remaining avoidable attributes. We could
 
 ## Class information in schemas
 
-As shown in the plots above, database schemas don't contain information about the attribute classes: this is only added on database creation. This would potentially be useful if the original data.frame is large, and creating the database would take a long time.
+As shown in the plots above, database schemas don't contain information about the attribute classes: this is only added on database creation. This would potentially be useful if the original data frame is large, and creating the database would take a long time.
 
 ## Handling of duplicate records
 
@@ -443,32 +468,20 @@ DiagrammeR::grViz(gv(autodb(df_nas)))
 In this case, a missing death date represents no death, and we would prefer to move death information to a separate relation, containing only patients with a death date, in this case patient 3:
 
 ```{r example_data_frame_with_NAs_nullably_normalised}
-ideal_db <- structure(
-  list(
-    name = "patients",
-    relations = list(
-      patient = list(
-        df = data.frame(
-          patient_id = c(1L, 2L, 3L, 4L),
-          trial_entry_date = as.Date(c("2022/05/02", "2022/06/06", "2022/04/01", "2022/03/19"))
-        ),
-        keys = list("patient_id"),
-        parents = character()
+ideal_db <- decompose(
+  df_nas,
+  database_schema(
+    relation_schema(
+      list(
+        patient = list(c("patient_id", "trial_entry_date"), list("patient_id")),
+        death = list(c("patient_id", "death_date"), list("patient_id"))
       ),
-      death = list(
-        df = data.frame(
-          patient_id = 3L,
-          death_date = as.Date("2022/10/07")
-        ),
-        keys = list("patient_id"),
-        parents = "patient"
-      )
+      names(df_nas)
     ),
-    relationships = list(c("death", "patient_id", "patient", "patient_id")),
-    attributes = c("patient_id", "trial_entry_date", "death_date")
-  ),
-  class = c("database", "list")
+    list(c("death", "patient_id", "patient", "patient_id"))
+  )
 )
+ideal_db$relations$death$df <- subset(ideal_db$relations$death$df, !is.na(death_date))
 DiagrammeR::grViz(gv(ideal_db))
 ```
 
