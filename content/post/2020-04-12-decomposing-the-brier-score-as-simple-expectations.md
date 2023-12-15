@@ -30,7 +30,7 @@ $$\begin{align*}
 \mathbb{E}(S(p, Y)|X)
 &= \mathbb{E}((p(X) - Y)^2|X)\\\\
 &= \mathbb{E}((p(X) - \mathbb{E}(Y|X) + \mathbb{E}(Y|X) - Y)^2|X)\\\\
-&= \mathrm{Var}(Y|X) + (\underbrace{p(X) - \mathbb{E}(Y|X)}_{\textrm{bias}(p(X)|X)})^2.
+&= \mathrm{Var}(Y|X) + (\underbrace{p(X) - \mathbb{E}(Y|X)}\_{\textrm{bias}(p(X)|X)})^2.
 \end{align*}$$
 
 This works by inserting intermediate expressions for $\mathbb{E}(Y|X)$ in the squared term, and then splitting the square, using the fact that $p(X) - \mathbb{E}(Y|X)$ and $Y - \mathbb{E}(Y|X)$ are independent given $X$, since the former term has zero variance.
@@ -63,8 +63,8 @@ We can obtain a clearer decomposition by taking the expectation of the prior dec
 $$\begin{align*}
 \mathbb{E}(S(p, Y))
 &= \mathbb{E}(\mathbb{E}(S(p, Y)|X))\\\\
-&= \underbrace{\mathbb{E}(\mathrm{Var}(Y|X))}_{\textrm{refinement}} + \underbrace{\mathbb{E}((p(X) - \mathbb{E}(Y|X))^2)}_{\textrm{calibration}\ldots}\\\\
-&= \underbrace{\mathrm{Var}(Y)}_\textrm{uncertainty} - \underbrace{\mathrm{Var}(\mathbb{E}(Y|X))}_{\textrm{resolution}} + \underbrace{\mathbb{E}((p(X) - \mathbb{E}(Y|X))^2)}_{\ldots\textrm{ AKA reliability}},\\\\
+&= \underbrace{\mathbb{E}(\mathrm{Var}(Y|X))}\_{\textrm{refinement}} + \underbrace{\mathbb{E}((p(X) - \mathbb{E}(Y|X))^2)}\_{\textrm{calibration}\ldots}\\\\
+&= \underbrace{\mathrm{Var}(Y)}\_\textrm{uncertainty} - \underbrace{\mathrm{Var}(\mathbb{E}(Y|X))}\_{\textrm{resolution}} + \underbrace{\mathbb{E}((p(X) - \mathbb{E}(Y|X))^2)}\_{\ldots\textrm{ AKA reliability}},
 \end{align*}$$
 where the final line comes from applying the law of total variance.
 
@@ -103,8 +103,8 @@ $$\begin{align*}
 \mathbb{E}(S(p, Y))
 =&\\, \mathbb{E}(\mathrm{Var}(Y|B)) + \mathbb{E}(\mathrm{Var}(p(X)|B))\\\\
 &+ \mathbb{E}((\mathbb{E}(p(X)|B) - \mathbb{E}(Y|B))^2) - 2\mathbb{E}(\textrm{Cov}(p(X), Y|B))\\\\
-=&\\, \mathrm{Var}(Y) - \underbrace{\mathrm{Var}(\mathbb{E}(Y|B))}_\textrm{binned resolution} + \underbrace{\mathbb{E}((\mathbb{E}(p(X)|B) - \mathbb{E}(Y|B))^2)}_\textrm{binned reliability}\\\\
-&+ \underbrace{\mathbb{E}(\mathrm{Var}(p(X)|B))}_\textrm{within-bin variance} - 2\underbrace{\mathbb{E}(\textrm{Cov}(p(X), Y|B))}_\textrm{within-bin covariance}.
+=&\\, \mathrm{Var}(Y) - \underbrace{\mathrm{Var}(\mathbb{E}(Y|B))}\_\textrm{binned resolution} + \underbrace{\mathbb{E}((\mathbb{E}(p(X)|B) - \mathbb{E}(Y|B))^2)}\_\textrm{binned reliability}\\\\
+&+ \underbrace{\mathbb{E}(\mathrm{Var}(p(X)|B))}\_\textrm{within-bin variance} - 2\underbrace{\mathbb{E}(\textrm{Cov}(p(X), Y|B))}\_\textrm{within-bin covariance}.
 \end{align*}$$
 The first three terms are clear analogues to the ones we had before. The last two terms are new, arising from $p(X)$ not being removed from the conditional variance term. They exactly counter the change in the resolution and reliability terms: for decent prediction functions $p$, this should mean that their sum is negative, since the resolution-reliability sum should increase due to the loss of information when binning.
 
