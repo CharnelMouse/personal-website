@@ -94,8 +94,8 @@ We effectively choose a summary function $b$ that bins the prediction probabilit
 We begin as above for the prior decomposition, but we use the expectation conditional on $B$ rather than on $X$. Since $p(X)$ is not invariant given $B$, this adds new covariance terms, like in the Tower-less prior case:
 $$\begin{align*}
 \mathbb{E}(S(p, Y)|B)
-&= \mathrm{Var}(p(X) - Y|B) + \mathbb{E}(p(X) - Y|B)^2\\\\
-&= \mathrm{Var}(p(X)|B) + \mathrm{Var}(Y|B)\\\\
+=&\\, \mathrm{Var}(p(X) - Y|B) + \mathbb{E}(p(X) - Y|B)^2\\\\
+=&\\, \mathrm{Var}(p(X)|B) + \mathrm{Var}(Y|B)\\\\
 &+ (\mathbb{E}(p(X)|B) - \mathbb{E}(Y|B))^2 - 2\textrm{Cov}(p(X), Y|B).
 \end{align*}$$
 These terms remain unsimplified in the unconditional expectation:
