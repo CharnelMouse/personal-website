@@ -1,0 +1,310 @@
+---
+title: 'Five dice: a short note on algorithm design'
+date: '2023-12-16'
+lastmod: '2023-12-16'
+author: ~
+slug: five-dice-a-short-note-on-algorithm-design
+categories: []
+tags:
+- Programming
+subtitle: ''
+summary: ''
+authors: []
+featured: no
+draft: yes
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+math: true
+---
+
+NOTE: before publishing, I need to compare this to decision tables. This basically replacing decision tables with decision arrays, with the usual differences in terms of guaranteeing total case coverage.
+
+A few years ago, a programming channel I follow put out a video about practising programming by implementing scoring for dice combinations in Yahtzee:
+
+```{r javid, echo=FALSE}
+blogdown::shortcode("youtube", id = "DDV_2cWT94U")
+```
+
+Watching this again recently reminded me of something I wanted to show in a more mathematical format. In particular, in 7:22--12:07 Javid discusses the code for drawing pips on a die according to the face value. He starts with showing code with separate instructions for each face, then talks about what happens if we "flip this idea on its head", and use separate instructions for the pips. This ends up producing drawing code that's much more concise.
+
+In other words, you've got two values you're conditioning on: the die face, and the pip. You use both of these to determine whether to draw the particular pip for that die. We could look at this in terms of informational value, but that's a little involved. Instead, since this is a function of the form
+$$\textrm{Face} \times \textrm{Pip} \rightarrow \textrm{Draw?},$$
+let's view it as a matrix, with one dimension for each input variable. I'll show this using R, so we can give names to the rows, columns, and dimensions:
+
+```{r face_pip_matrix}
+x <- matrix(
+  0L,
+  nrow = 6,
+  ncol = 7,
+  dimnames = list(
+    face = 1:6,
+    pip = c(
+      paste0(c("T", "", "B"), "L"),
+      "C",
+      paste0(c("T", "", "B"), "R")
+    )
+  )
+)
+x[1, "C"] <- 1L
+x[2, c("TL", "BR")] <- 1L
+x[3, c("TL", "C", "BR")] <- 1L
+x[4, c("TL", "BL", "TR", "BR")] <- 1L
+x[5, c("TL", "BL", "C", "TR", "BR")] <- 1L
+x[6, c("TL", "L", "BL", "TR", "R", "BR")] <- 1L
+x
+```
+R's `TRUE` and `FALSE` logical values aren't so readable within a matrix, so here I just use 1 and 0, respectively, for whether to draw the pip for a given face.
+
+Now, we could write code to draw this with some switching back and forth between the face and pip values, but we hope there's a simple structure where we can consider them in turn, once each. Roughly speaking, this takes a
+$$\textrm{Face} \times \textrm{Pip} \rightarrow \textrm{Draw?}$$
+workflow, and tries to flatten it into a
+$$\textrm{Face} \rightarrow \textrm{Pip} \rightarrow \textrm{Draw?}$$
+or a
+$$\textrm{Pip} \rightarrow \textrm{Face} \rightarrow \textrm{Draw?}$$
+workflow. (I promise we're not going off into Haskell territory here.)
+
+Which should we consider first? Well, it's tempting to go for the face first, since it has less cases. Writing lots of outer cases is a pain. However, before we decide, we could look for common patterns to simplify the data. One way to do this is by simply sorting the rows and columns. Here's how they get sorted if we sort by the row/column contents, in their given order:
+
+```{r matrix_ordered}
+x_ord <- x[
+  order(apply(x, 1, toString), decreasing = FALSE),
+  order(apply(x, 2, toString), decreasing = TRUE)
+]
+x_ord
+```
+
+We can now see that some pip columns are the same, so let's combine them:
+
+```{r matrix_compressed}
+x_comp <- x_ord[
+  ,
+  c("C", "TL", "BL", "L")
+]
+colnames(x_comp) <- c("C", "TL+BR", "BL+TR", "L+R")
+names(dimnames(x_comp))[[2]] <- "pip_group"
+x_comp
+```
+
+There are now less cases for pips, so we can see that considering them first might be more straightforward. For example, we can say to draw the centre pip if the face value is 1, 3, or 5.
+
+How to simplify this check for the centre pip is probably clear, but let's try to proceed as before. Now that we're looking at the pip groups first, and the faces have no obvious grouping, let's look at each pip group separately, with the values sorted again:
+
+```{r per_pip}
+x_pip <- apply(x_comp, 2, sort, simplify = FALSE)
+x_pip
+```
+
+Sorting makes it even more obvious that we draw the centre pip if the face value is odd, and the other pips are drawn depending on how the face value compares to a threshold.
+
+Roughly speaking, taking the smaller dimension first means that
+$$\textrm{Pip} \rightarrow \textrm{Face} \rightarrow \textrm{Draw?},$$
+or, rather,
+$$\textrm{PipGroup} \rightarrow \textrm{Face} \rightarrow \textrm{Draw?},$$
+is more straightforward and compact than
+$$\textrm{Face} \rightarrow \textrm{PipGroup} \rightarrow \textrm{Draw?}$$
+as a workflow.
+
+***
+
+Now, writing out the problem explicitly as an array over input values like this obviously doesn't scale well. It can also be hard to tease a good ordering out of: using this approach for scoring the Yahtzee combinations themselves, for example, turns out to be a lot of work for dubious gain. However, in some cases we can make progress by using informative summaries.
+
+For example, suppose we take five-card poker hands -- specifically a simpler subset where there aren't straights or flushes -- and say we just want to know the rank of the hand, ignoring ties.
+
+```{r poker_hands}
+cards <- c(2:10, "J", "Q", "K", "A")
+hand_ranks <- c("High card", "Pair", "Two pair", "3 of a kind", "Full house", "4 of a kind")
+hands <- combn(rep(cards, each = 4), 5, simplify = FALSE)
+hands <- unique(hands)
+
+hand_strings <- vapply(hands, toString, character(1))
+hand_tabs <- lapply(hands, \(x) table(factor(x, cards)))
+hand_tab_maxs <- vapply(hand_tabs, max, integer(1))
+hand_tab_lens <- vapply(hand_tabs, \(x) sum(x != 0), integer(1))
+poker_hands <- setNames(rep(NA, length(hands)), hand_strings)
+# the assigment steps give the game away here, but you could do something more
+# verbose, the array generation process doesn't matter
+poker_hands[hand_tab_maxs == 4] <- "4 of a kind"
+poker_hands[hand_tab_maxs == 1] <- "High card"
+poker_hands[hand_tab_maxs == 2 & hand_tab_lens == 4] <- "Pair"
+poker_hands[hand_tab_maxs == 2 & hand_tab_lens == 3] <- "Two pair"
+poker_hands[hand_tab_maxs == 3 & hand_tab_lens == 2] <- "Full house"
+poker_hands[hand_tab_maxs == 3 & hand_tab_lens == 3] <- "3 of a kind"
+poker_hands <- factor(poker_hands, hand_ranks)
+
+length(poker_hands)
+table(poker_hands)
+```
+
+If we compare the number of appearances for each hand type to [those from Wikipedia](https://en.wikipedia.org/wiki/Poker_probability#5-card_poker_hands) -- in particular, the "distinct hands" column, that ignores suits -- we can see that all of our counts are as expected. The only exception is High card, since it includes the 10 cases for straights, which we're ignoring.
+
+This 1D array -- vector -- for a
+$$\textrm{Hand} \rightarrow \textrm{HandRank}$$
+workflow only has one dimension, but has so many cases to resolve on that dimension that directly implementing it case-by-case isn't practical. In this case, we're better off finding a higher-dimension array, adding dimensions with more helpful summary statistics for the hand. In this case, since we're ignoring straights and suits, it's useful to have the number of unique card values in the hand, and the size of the largest group of cards with the same value:
+
+```{r}
+poker_hands_highd <- array(
+  NA_character_,
+  dim = c(
+    length(unique(hand_tab_lens)),
+    length(unique(hand_tab_maxs)),
+    length(hands)
+  ),
+  dimnames = list(
+    groups = sort(unique(hand_tab_lens)),
+    largest_group = sort(unique(hand_tab_maxs)),
+    cards = hand_strings
+  )
+)
+for (h in seq_along(hands)) {
+  poker_hands_highd[[
+    as.character(hand_tab_lens[[h]]),
+    as.character(hand_tab_maxs[[h]]),
+    hand_strings[[h]]
+  ]] <- as.character(poker_hands[[h]])
+}
+```
+
+Having these two statistics and the hands together introduces redundancy between the three input parameters, so a lot of the elements in the resulting array have no hand value, due to being impossible:
+
+```{r}
+poker_hands_highd[, , "2, 2, 2, 2, 3"]
+poker_hands_highd[, , "2, 2, 3, 3, 3"]
+apply(
+  poker_hands_highd,
+  1:2,
+  \(x) paste(sum(is.na(x)), length(x), sep = "/")
+)
+```
+
+However, for the non-missing elements, we can see that the two statistics together perfectly split the card sets up into the individual hand types:
+
+```{r hand_reduction}
+apply(
+  poker_hands_highd,
+  1:2,
+  \(x) toString(names(table(x, useNA = "no")))
+)
+```
+
+So we can structure the function to determine the hand rank as something like
+$$\textrm{NGroups} \times \textrm{LargestGroup} \rightarrow \textrm{HandRank}.$$
+Either of `NGroups` or `LargestGroup` could be used first: either way, we have two values that lead to a single hand rank, and two and lead to two possible ranks, so the approaches are equally simple.
+
+***
+
+More generically, if we're looking at a large matrix, we can't just sort the columns and examine them by eye. Doing that for every dimension would take a long time. Instead, we can take each subset of the array's dimensions, split the array by the values in those dimensions, and see how many of the remaining arrays are unique. For example, for each pip in the Yahtzee dice example, the remaining array is a vector of 0s and 1s for whether to draw it, one for each face. Of these seven arrays, only four are unique.
+
+We can write a function to check this for grouping by any (non-empty) dimension subset:
+
+```{r matrix_dimsize_uniq}
+dim_reduction <- function(mat) {
+  matrix_dim_selections <- expand.grid(setNames(
+    rep(
+      list(c(FALSE, TRUE)),
+      length(dim(mat))
+    ),
+    names(dimnames(mat))
+  )) |>
+    apply(1, identity, simplify = FALSE) |>
+    Filter(f = any)
+  selection_nm <- matrix_dim_selections |>
+    vapply(
+      function(bools) paste(names(bools[bools]), collapse = " + "),
+      character(1)
+    )
+  names(matrix_dim_selections) <- selection_nm
+  matrix_selection_size <- vapply(
+    matrix_dim_selections,
+    function(sel) {
+      size_all <- prod(dim(mat)[sel])
+      size_uniq <- length(unique(unlist(apply(
+        mat,
+        which(sel),
+        toString,
+        simplify = FALSE
+      ))))
+      paste(size_uniq, size_all, sep = "/")
+    },
+    character(1)
+  )
+  matrix_selection_size
+}
+
+dim_reduction(x)
+dim_reduction(x_comp)
+```
+Again, we can see that grouping by the pip, i.e. considering it first, results in 
+case reduction.
+
+How does this work out for the poker hands?
+
+```{r dim_reduction_failure}
+dim_reduction(poker_hands_highd)
+```
+Wait a minute, `groups + largest_group` has no reduction at all! `cards` has a huge reduction, but we can see the same reduction in the original vector, since it's due to there being only six hand ranks:
+
+```{r dim_reduction_orig}
+poker_hands_arr <- as.array(poker_hands)
+names(dimnames(poker_hands_arr))[[1]] <- "hand"
+dim_reduction(poker_hands_arr)
+```
+What's gone wrong? Well, remember that the two statistics are derived from it in the first place. If we follow the principle of using the smallest reduced dimension first, this reflects the fact that our workflow is more like
+$$\textrm{Hand} \rightarrow \textrm{NGroups} \times \textrm{LargestGroup} \rightarrow \textrm{HandRank},$$
+so the dimension reduction from our summary statistics isn't necessarily visible before we break things up by hand rank.
+
+How about if we get rid of the redundancy? What uniquely determines a hand, in addition to the group information? The card value for the two largest groups, breaking ties with card value:
+
+```{r poker_hands_tiebreak}
+poker_hands_tiebreak <- poker_hands_highd
+dimnames(poker_hands_tiebreak)[[3]] <- vapply(
+  hand_tabs,
+  function(tab) {
+    tab <- tab[tab > 0]
+    tab <- sort(tab)
+    toString(tail(names(tab), 2))
+  },
+  character(1)
+)
+names(dimnames(poker_hands_tiebreak))[[3]] <- "highs"
+all_single_value <- all(apply(
+  poker_hands_tiebreak,
+  c("groups", "largest_group"),
+  function(vals) {
+    tapply(
+      vals,
+      names(vals),
+      function(v) {
+        v_nm <- na.omit(v)
+        all(is.na(v_nm)) || all(v_nm == v_nm[[1]])
+      }
+    )
+  }
+))
+stopifnot(all_single_value)
+poker_hands_tiebreak <- poker_hands_tiebreak[
+  ,
+  ,
+  !duplicated(dimnames(poker_hands_tiebreak)[[3]])
+]
+dim_reduction(poker_hands_tiebreak)
+```
+Combining:
+```{r poker_hand_comb}
+poker_hands_tiebreak_comb <- poker_hands_tiebreak[
+  ,
+  ,
+  !duplicated(apply(poker_hands_tiebreak, 3, identity, simplify = FALSE))
+]
+poker_hands_tiebreak_comb
+```
+Now split by highs:
+```{r poker_hand_tiebreak_by_high}
+apply(
+  poker_hands_tiebreak_comb,
+  "highs",
+  dim_reduction
+)
+```

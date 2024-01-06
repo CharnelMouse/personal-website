@@ -1,0 +1,394 @@
+---
+title: 'Five dice: a short note on algorithm design'
+date: '2023-12-16'
+lastmod: '2023-12-16'
+author: ~
+slug: five-dice-a-short-note-on-algorithm-design
+categories: []
+tags:
+- Programming
+subtitle: ''
+summary: ''
+authors: []
+featured: no
+draft: yes
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+math: true
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>NOTE: before publishing, I need to compare this to decision tables. This basically replacing decision tables with decision arrays, with the usual differences in terms of guaranteeing total case coverage.</p>
+<p>A few years ago, a programming channel I follow put out a video about practising programming by implementing scoring for dice combinations in Yahtzee:</p>
+<p>{{% youtube id="DDV_2cWT94U" %}}</p>
+<p>Watching this again recently reminded me of something I wanted to show in a more mathematical format. In particular, in 7:22–12:07 Javid discusses the code for drawing pips on a die according to the face value. He starts with showing code with separate instructions for each face, then talks about what happens if we “flip this idea on its head”, and use separate instructions for the pips. This ends up producing drawing code that’s much more concise.</p>
+<p>In other words, you’ve got two values you’re conditioning on: the die face, and the pip. You use both of these to determine whether to draw the particular pip for that die. We could look at this in terms of informational value, but that’s a little involved. Instead, since this is a function of the form
+<span class="math display">\[\textrm{Face} \times \textrm{Pip} \rightarrow \textrm{Draw?},\]</span>
+let’s view it as a matrix, with one dimension for each input variable. I’ll show this using R, so we can give names to the rows, columns, and dimensions:</p>
+<pre class="r"><code>x &lt;- matrix(
+  0L,
+  nrow = 6,
+  ncol = 7,
+  dimnames = list(
+    face = 1:6,
+    pip = c(
+      paste0(c(&quot;T&quot;, &quot;&quot;, &quot;B&quot;), &quot;L&quot;),
+      &quot;C&quot;,
+      paste0(c(&quot;T&quot;, &quot;&quot;, &quot;B&quot;), &quot;R&quot;)
+    )
+  )
+)
+x[1, &quot;C&quot;] &lt;- 1L
+x[2, c(&quot;TL&quot;, &quot;BR&quot;)] &lt;- 1L
+x[3, c(&quot;TL&quot;, &quot;C&quot;, &quot;BR&quot;)] &lt;- 1L
+x[4, c(&quot;TL&quot;, &quot;BL&quot;, &quot;TR&quot;, &quot;BR&quot;)] &lt;- 1L
+x[5, c(&quot;TL&quot;, &quot;BL&quot;, &quot;C&quot;, &quot;TR&quot;, &quot;BR&quot;)] &lt;- 1L
+x[6, c(&quot;TL&quot;, &quot;L&quot;, &quot;BL&quot;, &quot;TR&quot;, &quot;R&quot;, &quot;BR&quot;)] &lt;- 1L
+x</code></pre>
+<pre><code>##     pip
+## face TL L BL C TR R BR
+##    1  0 0  0 1  0 0  0
+##    2  1 0  0 0  0 0  1
+##    3  1 0  0 1  0 0  1
+##    4  1 0  1 0  1 0  1
+##    5  1 0  1 1  1 0  1
+##    6  1 1  1 0  1 1  1</code></pre>
+<p>R’s <code>TRUE</code> and <code>FALSE</code> logical values aren’t so readable within a matrix, so here I just use 1 and 0, respectively, for whether to draw the pip for a given face.</p>
+<p>Now, we could write code to draw this with some switching back and forth between the face and pip values, but we hope there’s a simple structure where we can consider them in turn, once each. Roughly speaking, this takes a
+<span class="math display">\[\textrm{Face} \times \textrm{Pip} \rightarrow \textrm{Draw?}\]</span>
+workflow, and tries to flatten it into a
+<span class="math display">\[\textrm{Face} \rightarrow \textrm{Pip} \rightarrow \textrm{Draw?}\]</span>
+or a
+<span class="math display">\[\textrm{Pip} \rightarrow \textrm{Face} \rightarrow \textrm{Draw?}\]</span>
+workflow. (I promise we’re not going off into Haskell territory here.)</p>
+<p>Which should we consider first? Well, it’s tempting to go for the face first, since it has less cases. Writing lots of outer cases is a pain. However, before we decide, we could look for common patterns to simplify the data. One way to do this is by simply sorting the rows and columns. Here’s how they get sorted if we sort by the row/column contents, in their given order:</p>
+<pre class="r"><code>x_ord &lt;- x[
+  order(apply(x, 1, toString), decreasing = FALSE),
+  order(apply(x, 2, toString), decreasing = TRUE)
+]
+x_ord</code></pre>
+<pre><code>##     pip
+## face C TL BR BL TR L R
+##    1 1  0  0  0  0 0 0
+##    2 0  1  1  0  0 0 0
+##    3 1  1  1  0  0 0 0
+##    4 0  1  1  1  1 0 0
+##    5 1  1  1  1  1 0 0
+##    6 0  1  1  1  1 1 1</code></pre>
+<p>We can now see that some pip columns are the same, so let’s combine them:</p>
+<pre class="r"><code>x_comp &lt;- x_ord[
+  ,
+  c(&quot;C&quot;, &quot;TL&quot;, &quot;BL&quot;, &quot;L&quot;)
+]
+colnames(x_comp) &lt;- c(&quot;C&quot;, &quot;TL+BR&quot;, &quot;BL+TR&quot;, &quot;L+R&quot;)
+names(dimnames(x_comp))[[2]] &lt;- &quot;pip_group&quot;
+x_comp</code></pre>
+<pre><code>##     pip_group
+## face C TL+BR BL+TR L+R
+##    1 1     0     0   0
+##    2 0     1     0   0
+##    3 1     1     0   0
+##    4 0     1     1   0
+##    5 1     1     1   0
+##    6 0     1     1   1</code></pre>
+<p>There are now less cases for pips, so we can see that considering them first might be more straightforward. For example, we can say to draw the centre pip if the face value is 1, 3, or 5.</p>
+<p>How to simplify this check for the centre pip is probably clear, but let’s try to proceed as before. Now that we’re looking at the pip groups first, and the faces have no obvious grouping, let’s look at each pip group separately, with the values sorted again:</p>
+<pre class="r"><code>x_pip &lt;- apply(x_comp, 2, sort, simplify = FALSE)
+x_pip</code></pre>
+<pre><code>## $C
+## 2 4 6 1 3 5 
+## 0 0 0 1 1 1 
+## 
+## $`TL+BR`
+## 1 2 3 4 5 6 
+## 0 1 1 1 1 1 
+## 
+## $`BL+TR`
+## 1 2 3 4 5 6 
+## 0 0 0 1 1 1 
+## 
+## $`L+R`
+## 1 2 3 4 5 6 
+## 0 0 0 0 0 1</code></pre>
+<p>Sorting makes it even more obvious that we draw the centre pip if the face value is odd, and the other pips are drawn depending on how the face value compares to a threshold.</p>
+<p>Roughly speaking, taking the smaller dimension first means that
+<span class="math display">\[\textrm{Pip} \rightarrow \textrm{Face} \rightarrow \textrm{Draw?},\]</span>
+or, rather,
+<span class="math display">\[\textrm{PipGroup} \rightarrow \textrm{Face} \rightarrow \textrm{Draw?},\]</span>
+is more straightforward and compact than
+<span class="math display">\[\textrm{Face} \rightarrow \textrm{PipGroup} \rightarrow \textrm{Draw?}\]</span>
+as a workflow.</p>
+<hr />
+<p>Now, writing out the problem explicitly as an array over input values like this obviously doesn’t scale well. It can also be hard to tease a good ordering out of: using this approach for scoring the Yahtzee combinations themselves, for example, turns out to be a lot of work for dubious gain. However, in some cases we can make progress by using informative summaries.</p>
+<p>For example, suppose we take five-card poker hands – specifically a simpler subset where there aren’t straights or flushes – and say we just want to know the rank of the hand, ignoring ties.</p>
+<pre class="r"><code>cards &lt;- c(2:10, &quot;J&quot;, &quot;Q&quot;, &quot;K&quot;, &quot;A&quot;)
+hand_ranks &lt;- c(&quot;High card&quot;, &quot;Pair&quot;, &quot;Two pair&quot;, &quot;3 of a kind&quot;, &quot;Full house&quot;, &quot;4 of a kind&quot;)
+hands &lt;- combn(rep(cards, each = 4), 5, simplify = FALSE)
+hands &lt;- unique(hands)
+
+hand_strings &lt;- vapply(hands, toString, character(1))
+hand_tabs &lt;- lapply(hands, \(x) table(factor(x, cards)))
+hand_tab_maxs &lt;- vapply(hand_tabs, max, integer(1))
+hand_tab_lens &lt;- vapply(hand_tabs, \(x) sum(x != 0), integer(1))
+poker_hands &lt;- setNames(rep(NA, length(hands)), hand_strings)
+# the assigment steps give the game away here, but you could do something more
+# verbose, the array generation process doesn&#39;t matter
+poker_hands[hand_tab_maxs == 4] &lt;- &quot;4 of a kind&quot;
+poker_hands[hand_tab_maxs == 1] &lt;- &quot;High card&quot;
+poker_hands[hand_tab_maxs == 2 &amp; hand_tab_lens == 4] &lt;- &quot;Pair&quot;
+poker_hands[hand_tab_maxs == 2 &amp; hand_tab_lens == 3] &lt;- &quot;Two pair&quot;
+poker_hands[hand_tab_maxs == 3 &amp; hand_tab_lens == 2] &lt;- &quot;Full house&quot;
+poker_hands[hand_tab_maxs == 3 &amp; hand_tab_lens == 3] &lt;- &quot;3 of a kind&quot;
+poker_hands &lt;- factor(poker_hands, hand_ranks)
+
+length(poker_hands)</code></pre>
+<pre><code>## [1] 6175</code></pre>
+<pre class="r"><code>table(poker_hands)</code></pre>
+<pre><code>## poker_hands
+##   High card        Pair    Two pair 3 of a kind  Full house 4 of a kind 
+##        1287        2860         858         858         156         156</code></pre>
+<p>If we compare the number of appearances for each hand type to <a href="https://en.wikipedia.org/wiki/Poker_probability#5-card_poker_hands">those from Wikipedia</a> – in particular, the “distinct hands” column, that ignores suits – we can see that all of our counts are as expected. The only exception is High card, since it includes the 10 cases for straights, which we’re ignoring.</p>
+<p>This 1D array – vector – for a
+<span class="math display">\[\textrm{Hand} \rightarrow \textrm{HandRank}\]</span>
+workflow only has one dimension, but has so many cases to resolve on that dimension that directly implementing it case-by-case isn’t practical. In this case, we’re better off finding a higher-dimension array, adding dimensions with more helpful summary statistics for the hand. In this case, since we’re ignoring straights and suits, it’s useful to have the number of unique card values in the hand, and the size of the largest group of cards with the same value:</p>
+<pre class="r"><code>poker_hands_highd &lt;- array(
+  NA_character_,
+  dim = c(
+    length(unique(hand_tab_lens)),
+    length(unique(hand_tab_maxs)),
+    length(hands)
+  ),
+  dimnames = list(
+    groups = sort(unique(hand_tab_lens)),
+    largest_group = sort(unique(hand_tab_maxs)),
+    cards = hand_strings
+  )
+)
+for (h in seq_along(hands)) {
+  poker_hands_highd[[
+    as.character(hand_tab_lens[[h]]),
+    as.character(hand_tab_maxs[[h]]),
+    hand_strings[[h]]
+  ]] &lt;- as.character(poker_hands[[h]])
+}</code></pre>
+<p>Having these two statistics and the hands together introduces redundancy between the three input parameters, so a lot of the elements in the resulting array have no hand value, due to being impossible:</p>
+<pre class="r"><code>poker_hands_highd[, , &quot;2, 2, 2, 2, 3&quot;]</code></pre>
+<pre><code>##       largest_group
+## groups 1  2  3  4            
+##      2 NA NA NA &quot;4 of a kind&quot;
+##      3 NA NA NA NA           
+##      4 NA NA NA NA           
+##      5 NA NA NA NA</code></pre>
+<pre class="r"><code>poker_hands_highd[, , &quot;2, 2, 3, 3, 3&quot;]</code></pre>
+<pre><code>##       largest_group
+## groups 1  2  3            4 
+##      2 NA NA &quot;Full house&quot; NA
+##      3 NA NA NA           NA
+##      4 NA NA NA           NA
+##      5 NA NA NA           NA</code></pre>
+<pre class="r"><code>apply(
+  poker_hands_highd,
+  1:2,
+  \(x) paste(sum(is.na(x)), length(x), sep = &quot;/&quot;)
+)</code></pre>
+<pre><code>##       largest_group
+## groups 1           2           3           4          
+##      2 &quot;6175/6175&quot; &quot;6175/6175&quot; &quot;6019/6175&quot; &quot;6019/6175&quot;
+##      3 &quot;6175/6175&quot; &quot;5317/6175&quot; &quot;5317/6175&quot; &quot;6175/6175&quot;
+##      4 &quot;6175/6175&quot; &quot;3315/6175&quot; &quot;6175/6175&quot; &quot;6175/6175&quot;
+##      5 &quot;4888/6175&quot; &quot;6175/6175&quot; &quot;6175/6175&quot; &quot;6175/6175&quot;</code></pre>
+<p>However, for the non-missing elements, we can see that the two statistics together perfectly split the card sets up into the individual hand types:</p>
+<pre class="r"><code>apply(
+  poker_hands_highd,
+  1:2,
+  \(x) toString(names(table(x, useNA = &quot;no&quot;)))
+)</code></pre>
+<pre><code>##       largest_group
+## groups 1           2          3             4            
+##      2 &quot;&quot;          &quot;&quot;         &quot;Full house&quot;  &quot;4 of a kind&quot;
+##      3 &quot;&quot;          &quot;Two pair&quot; &quot;3 of a kind&quot; &quot;&quot;           
+##      4 &quot;&quot;          &quot;Pair&quot;     &quot;&quot;            &quot;&quot;           
+##      5 &quot;High card&quot; &quot;&quot;         &quot;&quot;            &quot;&quot;</code></pre>
+<p>So we can structure the function to determine the hand rank as something like
+<span class="math display">\[\textrm{NGroups} \times \textrm{LargestGroup} \rightarrow \textrm{HandRank}.\]</span>
+Either of <code>NGroups</code> or <code>LargestGroup</code> could be used first: either way, we have two values that lead to a single hand rank, and two and lead to two possible ranks, so the approaches are equally simple.</p>
+<hr />
+<p>More generically, if we’re looking at a large matrix, we can’t just sort the columns and examine them by eye. Doing that for every dimension would take a long time. Instead, we can take each subset of the array’s dimensions, split the array by the values in those dimensions, and see how many of the remaining arrays are unique. For example, for each pip in the Yahtzee dice example, the remaining array is a vector of 0s and 1s for whether to draw it, one for each face. Of these seven arrays, only four are unique.</p>
+<p>We can write a function to check this for grouping by any (non-empty) dimension subset:</p>
+<pre class="r"><code>dim_reduction &lt;- function(mat) {
+  matrix_dim_selections &lt;- expand.grid(setNames(
+    rep(
+      list(c(FALSE, TRUE)),
+      length(dim(mat))
+    ),
+    names(dimnames(mat))
+  )) |&gt;
+    apply(1, identity, simplify = FALSE) |&gt;
+    Filter(f = any)
+  selection_nm &lt;- matrix_dim_selections |&gt;
+    vapply(
+      function(bools) paste(names(bools[bools]), collapse = &quot; + &quot;),
+      character(1)
+    )
+  names(matrix_dim_selections) &lt;- selection_nm
+  matrix_selection_size &lt;- vapply(
+    matrix_dim_selections,
+    function(sel) {
+      size_all &lt;- prod(dim(mat)[sel])
+      size_uniq &lt;- length(unique(unlist(apply(
+        mat,
+        which(sel),
+        toString,
+        simplify = FALSE
+      ))))
+      paste(size_uniq, size_all, sep = &quot;/&quot;)
+    },
+    character(1)
+  )
+  matrix_selection_size
+}
+
+dim_reduction(x)</code></pre>
+<pre><code>##       face        pip face + pip 
+##      &quot;6/6&quot;      &quot;4/7&quot;     &quot;2/42&quot;</code></pre>
+<pre class="r"><code>dim_reduction(x_comp)</code></pre>
+<pre><code>##             face        pip_group face + pip_group 
+##            &quot;6/6&quot;            &quot;4/4&quot;           &quot;2/24&quot;</code></pre>
+<p>Again, we can see that grouping by the pip, i.e. considering it first, results in
+case reduction.</p>
+<p>How does this work out for the poker hands?</p>
+<pre class="r"><code>dim_reduction(poker_hands_highd)</code></pre>
+<pre><code>##                         groups                  largest_group 
+##                          &quot;4/4&quot;                          &quot;4/4&quot; 
+##         groups + largest_group                          cards 
+##                         &quot;7/16&quot;                       &quot;6/6175&quot; 
+##                 groups + cards          largest_group + cards 
+##                      &quot;7/24700&quot;                      &quot;7/24700&quot; 
+## groups + largest_group + cards 
+##                      &quot;7/98800&quot;</code></pre>
+<p>Wait a minute, <code>groups + largest_group</code> has no reduction at all! <code>cards</code> has a huge reduction, but we can see the same reduction in the original vector, since it’s due to there being only six hand ranks:</p>
+<pre class="r"><code>poker_hands_arr &lt;- as.array(poker_hands)
+names(dimnames(poker_hands_arr))[[1]] &lt;- &quot;hand&quot;
+dim_reduction(poker_hands_arr)</code></pre>
+<pre><code>##     hand 
+## &quot;6/6175&quot;</code></pre>
+<p>What’s gone wrong? Well, remember that the two statistics are derived from it in the first place. If we follow the principle of using the smallest reduced dimension first, this reflects the fact that our workflow is more like
+<span class="math display">\[\textrm{Hand} \rightarrow \textrm{NGroups} \times \textrm{LargestGroup} \rightarrow \textrm{HandRank},\]</span>
+so the dimension reduction from our summary statistics isn’t necessarily visible before we break things up by hand rank.</p>
+<p>How about if we get rid of the redundancy? What uniquely determines a hand, in addition to the group information? The card value for the two largest groups, breaking ties with card value:</p>
+<pre class="r"><code>poker_hands_tiebreak &lt;- poker_hands_highd
+dimnames(poker_hands_tiebreak)[[3]] &lt;- vapply(
+  hand_tabs,
+  function(tab) {
+    tab &lt;- tab[tab &gt; 0]
+    tab &lt;- sort(tab)
+    toString(tail(names(tab), 2))
+  },
+  character(1)
+)
+names(dimnames(poker_hands_tiebreak))[[3]] &lt;- &quot;highs&quot;
+all_single_value &lt;- all(apply(
+  poker_hands_tiebreak,
+  c(&quot;groups&quot;, &quot;largest_group&quot;),
+  function(vals) {
+    tapply(
+      vals,
+      names(vals),
+      function(v) {
+        v_nm &lt;- na.omit(v)
+        all(is.na(v_nm)) || all(v_nm == v_nm[[1]])
+      }
+    )
+  }
+))
+stopifnot(all_single_value)
+poker_hands_tiebreak &lt;- poker_hands_tiebreak[
+  ,
+  ,
+  !duplicated(dimnames(poker_hands_tiebreak)[[3]])
+]
+dim_reduction(poker_hands_tiebreak)</code></pre>
+<pre><code>##                         groups                  largest_group 
+##                          &quot;4/4&quot;                          &quot;4/4&quot; 
+##         groups + largest_group                          highs 
+##                         &quot;7/16&quot;                        &quot;6/156&quot; 
+##                 groups + highs          largest_group + highs 
+##                        &quot;7/624&quot;                        &quot;7/624&quot; 
+## groups + largest_group + highs 
+##                       &quot;7/2496&quot;</code></pre>
+<p>Combining:</p>
+<pre class="r"><code>poker_hands_tiebreak_comb &lt;- poker_hands_tiebreak[
+  ,
+  ,
+  !duplicated(apply(poker_hands_tiebreak, 3, identity, simplify = FALSE))
+]
+poker_hands_tiebreak_comb</code></pre>
+<pre><code>## , , highs = 3, 2
+## 
+##       largest_group
+## groups 1  2  3  4            
+##      2 NA NA NA &quot;4 of a kind&quot;
+##      3 NA NA NA NA           
+##      4 NA NA NA NA           
+##      5 NA NA NA NA           
+## 
+## , , highs = 2, 3
+## 
+##       largest_group
+## groups 1  2  3            4 
+##      2 NA NA &quot;Full house&quot; NA
+##      3 NA NA NA           NA
+##      4 NA NA NA           NA
+##      5 NA NA NA           NA
+## 
+## , , highs = 2, 4
+## 
+##       largest_group
+## groups 1  2          3  4 
+##      2 NA NA         NA NA
+##      3 NA &quot;Two pair&quot; NA NA
+##      4 NA NA         NA NA
+##      5 NA NA         NA NA
+## 
+## , , highs = 4, 3
+## 
+##       largest_group
+## groups 1  2  3             4 
+##      2 NA NA NA            NA
+##      3 NA NA &quot;3 of a kind&quot; NA
+##      4 NA NA NA            NA
+##      5 NA NA NA            NA
+## 
+## , , highs = 5, 4
+## 
+##       largest_group
+## groups 1  2      3  4 
+##      2 NA NA     NA NA
+##      3 NA NA     NA NA
+##      4 NA &quot;Pair&quot; NA NA
+##      5 NA NA     NA NA
+## 
+## , , highs = 5, 6
+## 
+##       largest_group
+## groups 1           2  3  4 
+##      2 NA          NA NA NA
+##      3 NA          NA NA NA
+##      4 NA          NA NA NA
+##      5 &quot;High card&quot; NA NA NA</code></pre>
+<p>Now split by highs:</p>
+<pre class="r"><code>apply(
+  poker_hands_tiebreak_comb,
+  &quot;highs&quot;,
+  dim_reduction
+)</code></pre>
+<pre><code>##                         highs
+##                          3, 2   2, 3   2, 4   4, 3   5, 4   5, 6  
+##   groups                 &quot;2/4&quot;  &quot;2/4&quot;  &quot;2/4&quot;  &quot;2/4&quot;  &quot;2/4&quot;  &quot;2/4&quot; 
+##   largest_group          &quot;2/4&quot;  &quot;2/4&quot;  &quot;2/4&quot;  &quot;2/4&quot;  &quot;2/4&quot;  &quot;2/4&quot; 
+##   groups + largest_group &quot;2/16&quot; &quot;2/16&quot; &quot;2/16&quot; &quot;2/16&quot; &quot;2/16&quot; &quot;2/16&quot;</code></pre>
