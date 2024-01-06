@@ -1,7 +1,7 @@
 ---
 title: Decomposing general scores as simple expectations
 date: 2021-09-12
-lastmod: 2021-09-12
+lastmod: 2023-12-16
 author: ~
 slug: decomposing-general-scores-as-simple-expectations
 categories: []
