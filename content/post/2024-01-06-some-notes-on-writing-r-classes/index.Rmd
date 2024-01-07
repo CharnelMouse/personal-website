@@ -1,0 +1,102 @@
+---
+title: Some notes on writing R classes
+author: ~
+date: '2024-01-06'
+slug: []
+categories: []
+tags:
+- Programming
+- R
+- autodb
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2024-01-06'
+featured: no
+draft: yes
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects:
+- autodb
+---
+
+R has always been a language designed for both interactive and batch programming, but that's not the only case of it allowing two approaches. It's also allowed tackling problems with both multi-dimensional arrays (vectors, matrices etc.), and tables (data frames).
+
+People often like solving everything with tables. It's a uniform format, lots of R functions like taking vectors of uniform length in the way tables give them, R formulae etc. work very well with them.
+
+It's easy to forget, though, that arrays are sometimes exactly what you want.
+
+- Suppose your data takes the form of a decision table: several "input" variables, and one "output" variable. The table's supposed to contain a row for every combination of the inputs. How easy is it to notice if some combinations are missing? Yes, you can easily check by counting, but do you remember to do that? If you're an R user, did you notice that `ChickWeight` doesn't have all the regular chick weight measurements that it should, because some of the chicks died during the study? Checking for these missing records is more straightforward in arrays, since the regular structure forces you to include missing values.
+- If the data processing you have in mind is linear, it can often be done with an array very succinctly. R is partly an array-oriented language like APL, let's make use of it.
+- Generally, manipulating tables can be pretty verbose. This often comes with the benefit that the structure makes it more difficult to make certain types of errors, but it's not always worth it.
+
+Even if you're not using arrays, a lot of nice things come out of vectors. R's primitive classes are all vectors: an integer isn't an atomic integer, it's a length-one integer vector. Adding a single number to a vector of numbers adds it to all of them without using loops. This is nice. A string is a length-one string ("character") vector, which makes text manipulation in R difficult because strings aren't char vectors, and there's no char class at all. This is not so nice.
+
+Now, when you're writing a package, one of the key things you usually do, once you know what you want the package to do, is to define new classes. Even just adding classes for nicer print methods can be useful.
+
+For me, the poster child for this is the `Surv` class from R's `survival` package for survival analysis, which works as a vector of values (survival times) that might be censored.
+
+```{r}
+library(survival)
+times <- Surv(1:4, 3:6 + (2:5)/10, 0:3, "interval")
+times
+as.data.frame(times)
+df <- data.frame(trial = 1:4, time = times)
+df
+```
+
+It has lots of methods for the generic functions we'd often use for the vector primitives:
+
+```{r}
+methods(class = "Surv")
+```
+
+Allowing censored values, intervals etc. means it can't actually just be a simple vector, though, right? Let's look at how it's stored:
+
+```{r}
+unclass(times)
+```
+
+These censored values are actually rows in a matrix, but with enough generic function methods written around them that the user can treat it as a vector.
+
+A lot of packages, though, give classes that only take a single, scalar, value. Sometimes this is necessary for the context, sometimes a vector would have been better than making the user manually stuff values inside a list.
+
+I don't know why this is. Maybe a lot of package writers are just used to writing in other languages that aren't vectorised, e.g. C. Maybe writing all the methods to support it is just too much for the time available. Maybe being taught Tidyverse first, with its obsession with tables for everything, instead of R in general, means that vectorising doesn't occur to them. Whatever the reason, vectors remove what would otherwise be a lot of boilerplate syntax, and it's a shame to see them not being used in language extensions.
+
+For version 2 of `autodb`, I've been adding in classes for the intermediate data forms: relation and database schemas, relations with not references to make them collectively a database. While not as extensively as for `Surv`, I've been trying to make some of these treatable as vectors.
+
+A nice thing to think about here was something Chris Date and Hugh Darwen said in The Third Manifesto: specifically, in Appendix D, "What Is A Database?", they define a database as a relation tuple [^1]. Eh?
+
+[^1]: Actually. what they write is "a dbvar is a tuplevar", but I'm ignoring the difference between a variable and a value here.
+
+Well, a tuple is a row/record in a relation, which we can roughly think of here as a table, plus candidate key information. So, a database is a row in a table, where each column in the table describes the state of a specific table in the database.
+
+What does this mean for writing classes for `autodb`? Well, it means we can think of a database as acting like a relation vector, and a database schema as acting like a vector of relation schemas:
+
+They're a little more than that, because they also contain inter-relation constraints like foreign keys, but we can now think of them as containing / inheriting from relation and relation schema classes, respectively, which are "vectorised". A relation object might contain one relation, it might contain five.
+
+```{r}
+library(autodb)
+rs <- relation_schema(list(a = list(c("a", "b"), list("a"))), c("a", "b"))
+rs2 <- relation_schema(list(b = list(c("b", "c"), list("b"))), c("b", "c"))
+rs
+rs2
+c(rs, rs2)
+rev(c(rs, rs2))
+rev(c(rs, rs2))
+c(rs, rs)
+unique(c(rs, rs))
+```
+
+A database is then a relation object, with constraints added as a wrapper layer. Database inherits from relation. Similarly, a database schema just adds the same sort of wrapper layer to a relation schema object.
+
+```{r}
+ds <- database_schema(c(rs, rs2), list(list("a", "b", "b", "b")))
+ds
+c(ds, ds)
+unique(c(ds, ds))
+```
+
+This means that database and database schema objects are *not* vectorised: a database isn't a vector of databases, and so on. However, it's rare that we care about more than one database at a time, and we now have vectorisation where it matters: referring to a set of relations or relation schemas, which can now be reordered, concatenated, etc. with R's basic operators. Writing these operators for a database etc. is now usually a case of calling the operator for the contained relation vector, and then adjusting the constraints wrapper accordingly. This wrapper adjustment is then usually the same for database schemas. If I'd known to write the classes like this from the beginning, it would have saved a ton of work, but, as it is, it still makes for a more elegant class model.
