@@ -316,7 +316,7 @@ fst::write_fst(z, tf_fst)</code></pre>
 <pre class="r"><code>arrow::write_parquet(z, tf_parquet_arrow)
 arrow::read_parquet(tf_parquet_arrow)</code></pre>
 <pre><code>## # A tibble: 0 x 0</code></pre>
-<p>Let’s summarise everything done about for the <span class="math inline">\(5 \times 0\)</span> table <code>z</code>:</p>
+<p>Let’s summarise everything done above for the <span class="math inline">\(5 \times 0\)</span> table <code>z</code>:</p>
 <table>
 <thead>
 <tr class="header">
@@ -425,7 +425,7 @@ except Exception as e: print(e)</code></pre>
 ##     }
 ##     else duplicated(x[[1L]], fromLast = fromLast, ...)
 ## }
-## &lt;bytecode: 0x0000000013327510&gt;
+## &lt;bytecode: 0x0000000013d828f8&gt;
 ## &lt;environment: namespace:base&gt;</code></pre>
 <p>Here we see an approach for looking for duplicate columns that I’ve used directly before: use <code>Map(list, x)</code>, after some tidying of <code>x</code>, to return a list of rows, where each row is given as the list of its values. We then check whether these rows are duplicated, so we’re comparing list elements instead of several columns at once.</p>
 <p>This is a reasonable approach if we have at least one column. What happens if we try this conversion with no columns?</p>
@@ -449,12 +449,12 @@ a</code></pre>
 <pre class="r"><code>nrow</code></pre>
 <pre><code>## function (x) 
 ## dim(x)[1L]
-## &lt;bytecode: 0x00000000148107a0&gt;
+## &lt;bytecode: 0x00000000148106a8&gt;
 ## &lt;environment: namespace:base&gt;</code></pre>
 <pre class="r"><code>dim.data.frame</code></pre>
 <pre><code>## function (x) 
 ## c(.row_names_info(x, 2L), length(x))
-## &lt;bytecode: 0x0000000015f86fb8&gt;
+## &lt;bytecode: 0x0000000015f87db0&gt;
 ## &lt;environment: namespace:base&gt;</code></pre>
 <p>Effectively, the row names are used like a “header”, but for the rows instead of the columns. This is probably why, if you try to remove them with something like <code>row.names(a) &lt;- NULL</code>, R will immediately add integer row names as replcaements: removing row names completely would break the information about the table’s size, in a way that removing the column names can’t. We can see this with tables that have columns, too:</p>
 <pre class="r"><code>b &lt;- data.frame(a = 1:4, b = 2:3)
@@ -526,24 +526,24 @@ duplicated3(z)</code></pre>
 <p>It looks like it would also be quicker, at least for small tables like these:</p>
 <pre class="r"><code>microbenchmark::microbenchmark(duplicated2(z), duplicated3(z), times = 1000)</code></pre>
 <pre><code>## Unit: microseconds
-##            expr    min     lq      mean median     uq   max neval cld
-##  duplicated2(z) 52.001 57.901 61.315697 58.802 60.201 200.9  1000   b
-##  duplicated3(z)  4.100  4.601  5.002903  4.801  5.000  35.0  1000  a</code></pre>
+##            expr    min      lq      mean median     uq     max neval cld
+##  duplicated2(z) 52.001 57.3010 59.560128 58.002 58.900 203.701  1000   b
+##  duplicated3(z)  4.001  4.5015  4.968383  4.701  4.901  34.402  1000  a</code></pre>
 <pre class="r"><code>microbenchmark::microbenchmark(duplicated2(w), duplicated3(w), times = 1000)</code></pre>
 <pre><code>## Unit: microseconds
-##            expr    min     lq      mean median     uq     max neval cld
-##  duplicated2(w) 17.201 18.801 20.373105 19.900 20.501 109.001  1000   b
-##  duplicated3(w)  3.700  4.301  4.741497  4.502  4.801  77.101  1000  a</code></pre>
+##            expr    min     lq      mean median     uq    max neval cld
+##  duplicated2(w) 17.101 18.801 19.975305 19.301 19.802 95.101  1000   b
+##  duplicated3(w)  3.801  4.300  4.639682  4.500  4.651 30.201  1000  a</code></pre>
 <pre class="r"><code>microbenchmark::microbenchmark(duplicated2(x), duplicated3(x), times = 1000)</code></pre>
 <pre><code>## Unit: microseconds
-##            expr     min      lq      mean   median       uq      max neval cld
-##  duplicated2(x) 165.701 183.651 200.17321 188.3015 199.7505 3213.101  1000   b
-##  duplicated3(x)  19.701  21.801  23.49253  22.6010  23.8010   66.701  1000  a</code></pre>
+##            expr     min      lq      mean  median       uq      max neval cld
+##  duplicated2(x) 159.501 172.901 185.08281 178.200 187.0010 2853.101  1000   b
+##  duplicated3(x)  18.301  20.601  24.77814  21.401  22.5005 2736.901  1000  a</code></pre>
 <pre class="r"><code>microbenchmark::microbenchmark(duplicated2(y), duplicated3(y), times = 1000)</code></pre>
 <pre><code>## Unit: microseconds
-##            expr    min      lq     mean  median       uq     max neval cld
-##  duplicated2(y) 55.501 63.5015 94.08591 78.1015 113.0515 776.400  1000   b
-##  duplicated3(y)  7.800  8.7020 13.02047  9.7010  15.9010  64.601  1000  a</code></pre>
+##            expr    min     lq      mean median     uq     max neval cld
+##  duplicated2(y) 53.001 57.201 61.253414 59.301 63.101 283.701  1000   b
+##  duplicated3(y)  7.101  8.001  8.678669  8.401  8.801  49.002  1000  a</code></pre>
 <p>For <code>autodb</code> classes, I’ll probably be writing something like the latter, so I don’t have this edge case all over the code any more.</p>
 </div>
 <div id="environment-used" class="section level2">

@@ -262,7 +262,7 @@ arrow::write_parquet(z, tf_parquet_arrow)
 arrow::read_parquet(tf_parquet_arrow)
 ```
 
-Let's summarise everything done about for the $5 \times 0$ table `z`:
+Let's summarise everything done above for the $5 \times 0$ table `z`:
 
 ```{r, echo=FALSE, results='hide'}
 dim_summary <- data.frame(
