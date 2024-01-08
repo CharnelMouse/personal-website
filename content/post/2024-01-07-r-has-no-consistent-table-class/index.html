@@ -1,0 +1,609 @@
+---
+title: "R has no consistent table class"
+author: ~
+date: '2024-01-08'
+slug: []
+categories: []
+tags:
+- Programming
+- R
+- Relational model
+- autodb
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2024-01-08'
+featured: no
+draft: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+math: true
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<div id="the-usual-case" class="section level2">
+<h2>The usual case</h2>
+<p>R, in addition to being array-based, can also be table-based: it has a table class in the base language, <code>data.frame</code>. This is great, because a lot of data comes in table form.</p>
+<p>Here are some simple examples:</p>
+<pre class="r"><code>x &lt;- data.frame(
+  a = rep(1:3, 4),
+  b = rep(1:2, 6)
+)
+x</code></pre>
+<pre><code>##    a b
+## 1  1 1
+## 2  2 2
+## 3  3 1
+## 4  1 2
+## 5  2 1
+## 6  3 2
+## 7  1 1
+## 8  2 2
+## 9  3 1
+## 10 1 2
+## 11 2 1
+## 12 3 2</code></pre>
+<pre class="r"><code>y &lt;- data.frame(
+  a = rep(1, 5)
+)
+y</code></pre>
+<pre><code>##   a
+## 1 1
+## 2 1
+## 3 1
+## 4 1
+## 5 1</code></pre>
+<p>One thing we can do with these tables is to look for, or remove, duplicate rows:</p>
+<pre class="r"><code>duplicated(x)</code></pre>
+<pre><code>##  [1] FALSE FALSE FALSE FALSE FALSE FALSE  TRUE  TRUE  TRUE  TRUE  TRUE  TRUE</code></pre>
+<pre class="r"><code>duplicated(y)</code></pre>
+<pre><code>## [1] FALSE  TRUE  TRUE  TRUE  TRUE</code></pre>
+<pre class="r"><code>unique(x)</code></pre>
+<pre><code>##   a b
+## 1 1 1
+## 2 2 2
+## 3 3 1
+## 4 1 2
+## 5 2 1
+## 6 3 2</code></pre>
+<pre class="r"><code>unique(y)</code></pre>
+<pre><code>##   a
+## 1 1</code></pre>
+<p>Simple enough, right? Right.</p>
+</div>
+<div id="the-edge-case" class="section level2">
+<h2>The edge case</h2>
+<p>Now let’s try this with a data frame with no columns. This is something that R allows, so this should work as expected.</p>
+<pre class="r"><code>z &lt;- y[, FALSE, drop = FALSE]
+z</code></pre>
+<pre><code>## data frame with 0 columns and 5 rows</code></pre>
+<p>Now, what do we expect to happen when we look for duplicates? Well, every row is the same, so every row after the first is a duplicate, so <code>unique</code> should leave a single row. The fact that the rows contain no data is irrelevant. What actually happens?</p>
+<pre class="r"><code>duplicated(z)</code></pre>
+<pre><code>## logical(0)</code></pre>
+<p><code>duplicated</code> returns a zero-length vector, as if there were no rows. This results in R claiming there are no rows after removing duplicates:</p>
+<pre class="r"><code>unique(z)</code></pre>
+<pre><code>## data frame with 0 columns and 0 rows</code></pre>
+<p>Uh oh. How about if we only have the one row to begin with?</p>
+<pre class="r"><code>w &lt;- z[1, , drop = FALSE]
+w</code></pre>
+<pre><code>## data frame with 0 columns and 1 row</code></pre>
+<pre class="r"><code>duplicated(w)</code></pre>
+<pre><code>## logical(0)</code></pre>
+<pre class="r"><code>unique(w)</code></pre>
+<pre><code>## data frame with 0 columns and 0 rows</code></pre>
+<p>Oh, dear.</p>
+</div>
+<div id="why-this-matters" class="section level2">
+<h2>Why this matters</h2>
+<p>In practice, a table with no columns is not going to turn up much, so you could argue that this doesn’t matter. However, it should matter, if nothing else, for reasons of consistency: if we’re working programmatically, we have no idea what dimension of table we’re working with.</p>
+<p>In fact, I’ve run into this problem multiple times when writing the <code>autodb</code> package for decomposing a data table into a partially-normalised database.</p>
+<p>A database is composed of several relations, which are tables with some additional information. One piece of additional information is the relation’s (candidate) keys, which are sets of the columns that, together, uniquely determine the rows. Each row has a unique set of values for the key’s columns; vice versa, knowing the values for the key’s columns determines which row we’re looking at.</p>
+<p>When turning a table of real data into a database, you can get a relation with an empty key. This happens when a column has the same value in every row: its value is constant, and determinable with no information. Such a relation can only have 0 or 1 rows, since an empty key can’t distinguish between multiple rows.</p>
+<p>There are a few reasons an empty key is a problem in R, given how we saw its data frames deal with this case, but let’s take the example where we’re checking that a given database is valid. One thing we need to check is that the columns in each key of a relation have unique values over its rows.</p>
+<p>For example, suppose <code>x</code> above has both of its columns as its sole key. Does the key have unique values over its rows? No, because there are duplicates:</p>
+<pre class="r"><code>x_key &lt;- c(&quot;a&quot;, &quot;b&quot;)
+anyDuplicated((x[, x_key, drop = FALSE])) # returns 0 if unique</code></pre>
+<pre><code>## [1] 7</code></pre>
+<p>However, removing the duplicates makes the key values unique:</p>
+<pre class="r"><code>anyDuplicated(unique(x)[, x_key, drop = FALSE])</code></pre>
+<pre><code>## [1] 0</code></pre>
+<p>Now, let’s try validating a valid table with an empty key, which can only have 0 or 1 rows:</p>
+<pre class="r"><code>v &lt;- data.frame(a = 1L, b = 2L, c = FALSE)
+v</code></pre>
+<pre><code>##   a b     c
+## 1 1 2 FALSE</code></pre>
+<pre class="r"><code>v_key &lt;- character()
+anyDuplicated(v[, v_key, drop = FALSE]) # the right answer...</code></pre>
+<pre><code>## [1] 0</code></pre>
+<pre class="r"><code>duplicated(v[, v_key, drop = FALSE]) # ... for the wrong reason</code></pre>
+<pre><code>## logical(0)</code></pre>
+<p>How about if that table invalidly has multiple rows?</p>
+<pre class="r"><code>u &lt;- data.frame(a = c(1L, 2L), b = c(2L, 3L), c = c(FALSE, TRUE))
+u</code></pre>
+<pre><code>##   a b     c
+## 1 1 2 FALSE
+## 2 2 3  TRUE</code></pre>
+<pre class="r"><code>u_key &lt;- character()
+anyDuplicated(u[, u_key, drop = FALSE]) # the wrong answer...</code></pre>
+<pre><code>## [1] 0</code></pre>
+<pre class="r"><code>duplicated(u[, u_key, drop = FALSE]) # ... for the wrong reason</code></pre>
+<pre><code>## logical(0)</code></pre>
+<p>This shows that we can run into this problem, even when dealing with realistic data.
+This is clearly a problem when writing a library that models databases! I end up having to write nasty code like this:</p>
+<pre class="r"><code>dups &lt;- if (length(u_key) == 0) {
+  if (nrow(u) == 0)
+    logical() # length 0 boolean vector
+  else
+    c(FALSE, rep(TRUE, nrow(u) - 1))
+}else
+  duplicated(u[, u_key, drop = FALSE])
+dups</code></pre>
+<pre><code>## [1] FALSE  TRUE</code></pre>
+<pre class="r"><code>u[dups, , drop = FALSE]</code></pre>
+<pre><code>##   a b    c
+## 2 2 3 TRUE</code></pre>
+</div>
+<div id="third-party-table-classes-are-inconsistent-too" class="section level2">
+<h2>Third-party table classes are inconsistent too</h2>
+<p>OK, R’s base <code>data.frame</code> class is inconsistent, but people also like to use the <code>tibble</code> and <code>data.table</code> classes instead, from their eponymous libraries. Do they do any better?</p>
+<p>Here’s <code>tibble</code>:</p>
+<pre class="r"><code>library(tibble)</code></pre>
+<pre><code>## Warning: package &#39;tibble&#39; was built under R version 4.1.3</code></pre>
+<pre class="r"><code>z_tib &lt;- as_tibble(z) # should be 5x0
+z_tib</code></pre>
+<pre><code>## # A tibble: 5 x 0</code></pre>
+<pre class="r"><code>w_tib &lt;- as_tibble(w) # should be 1x0
+w_tib</code></pre>
+<pre><code>## # A tibble: 1 x 0</code></pre>
+<pre class="r"><code>duplicated(z_tib)</code></pre>
+<pre><code>## logical(0)</code></pre>
+<pre class="r"><code>try(unique(z_tib))</code></pre>
+<pre><code>## Error in x[!duplicated(x, fromLast = fromLast, ...), , drop = FALSE] : 
+##   Can&#39;t subset rows with `!duplicated(x, fromLast = fromLast, ...)`.
+## x Logical subscript `!duplicated(x, fromLast = fromLast, ...)` must be size 1 or 5, not 0.</code></pre>
+<pre class="r"><code>duplicated(w_tib)</code></pre>
+<pre><code>## logical(0)</code></pre>
+<pre class="r"><code>try(unique(w_tib))</code></pre>
+<pre><code>## Error in x[!duplicated(x, fromLast = fromLast, ...), , drop = FALSE] : 
+##   Can&#39;t subset rows with `!duplicated(x, fromLast = fromLast, ...)`.
+## x Logical subscript `!duplicated(x, fromLast = fromLast, ...)` must be size 1 or 1, not 0.</code></pre>
+<p>That’s no good. How about <code>data.table</code>?</p>
+<pre class="r"><code>library(data.table)
+z_dt &lt;- as.data.table(z) # should be 5x0
+z_dt</code></pre>
+<pre><code>## Null data.table (0 rows and 0 cols)</code></pre>
+<pre class="r"><code>w_dt &lt;- as.data.table(w) # should be 5x0
+w_dt</code></pre>
+<pre><code>## Null data.table (0 rows and 0 cols)</code></pre>
+<pre class="r"><code>duplicated(z_dt)</code></pre>
+<pre><code>## logical(0)</code></pre>
+<pre class="r"><code>unique(z_dt)</code></pre>
+<pre><code>## Null data.table (0 rows and 0 cols)</code></pre>
+<pre class="r"><code>duplicated(w_dt)</code></pre>
+<pre><code>## logical(0)</code></pre>
+<pre class="r"><code>unique(w_dt)</code></pre>
+<pre><code>## Null data.table (0 rows and 0 cols)</code></pre>
+<p>As much as I like <code>data.table</code> over <code>tibble</code>, this is even worse: the rows are all dropped on conversion. Creating the table directly as a <code>data.table</code>, instead of converting from a <code>data.frame</code>, makes no difference.</p>
+<p>These are the main three table classes, but there are a few others. I looked at a few used for large data storage, but assessing most of them requires writing and reading to a file, rather than directly converting from a data frame. I’ll go over this in the next section.</p>
+<p>The one I found that does take direct conversion is <code>arrow</code>, which is an interface for Apache’s Arrow C++ library. How does <code>arrow</code> do?</p>
+<pre class="r"><code>library(arrow)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;arrow&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:utils&#39;:
+## 
+##     timestamp</code></pre>
+<pre class="r"><code>z_arw &lt;- as_arrow_table(z)
+z_arw</code></pre>
+<pre><code>## Table
+## 0 rows x 0 columns
+## 
+## 
+## See $metadata for additional Schema metadata</code></pre>
+<pre class="r"><code>w_arw &lt;- as_arrow_table(w)
+w_arw</code></pre>
+<pre><code>## Table
+## 0 rows x 0 columns
+## 
+## 
+## See $metadata for additional Schema metadata</code></pre>
+<pre class="r"><code>try(duplicated(z_arw))</code></pre>
+<pre><code>## Error in duplicated.default(z_arw) : duplicated() applies only to vectors</code></pre>
+<pre class="r"><code>unique(z_arw)</code></pre>
+<pre><code>## Table (query)
+## 
+## 
+## See $.data for the source Arrow object</code></pre>
+<pre class="r"><code>try(duplicated(w_arw))</code></pre>
+<pre><code>## Error in duplicated.default(w_arw) : duplicated() applies only to vectors</code></pre>
+<pre class="r"><code>unique(w_arw)</code></pre>
+<pre><code>## Table (query)
+## 
+## 
+## See $.data for the source Arrow object</code></pre>
+<p>Not well.<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
+</div>
+<div id="files-and-file-driven-table-classes-arent-consistent-either" class="section level2">
+<h2>Files and file-driven table classes aren’t consistent either</h2>
+<p>We’ll look at three file-driven classes here: <code>feather</code> and <code>fst</code> from their eponymous packages, and <code>parquet</code>. Since <code>parquet</code> should be able to read from several file formats, we’ll check this one as we go.<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a> We also end up looking briefly at <code>vroom</code>, due to some error messages from <code>parquet</code>.</p>
+<p>The basic issue is that writing a zero-column data frame to a CSV file results in something that can’t be parsed properly:</p>
+<pre class="r"><code>tf &lt;- tempfile()
+write.csv(z, tf, row.names = FALSE)
+readLines(tf)</code></pre>
+<pre><code>## [1] &quot;\&quot;\&quot;&quot; &quot;&quot;     &quot;&quot;     &quot;&quot;     &quot;&quot;     &quot;&quot;</code></pre>
+<pre class="r"><code>try(read.csv(tf, row.names = FALSE))</code></pre>
+<pre><code>## Error in read.table(file = file, header = header, sep = sep, quote = quote,  : 
+##   first five rows are empty: giving up</code></pre>
+<p><code>parquet</code> and <code>vroom</code> don’t have much better luck writing and reading it:</p>
+<pre class="r"><code>tf_parquet &lt;- tempfile() # for writing parquet files via parquetize
+tf_parquet_arrow &lt;- tempfile() # for writing parquet files via arrow
+try(parquetize::csv_to_parquet(tf, path_to_parquet = tf_parquet))</code></pre>
+<pre><code>## Reading data...</code></pre>
+<pre><code>## Error : Could not guess the delimiter.
+## 
+## Use `vroom(delim =)` to specify one explicitly.</code></pre>
+<pre class="r"><code>vroom::vroom(tf, delim = &quot;,&quot;)</code></pre>
+<pre><code>## New names:
+## Rows: 0 Columns: 1
+## -- Column specification
+## -------------------------------------------------------- Delimiter: &quot;,&quot; chr
+## (1): ...1
+## i Use `spec()` to retrieve the full column specification for this data. i
+## Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## * `` -&gt; `...1`</code></pre>
+<pre><code>## # A tibble: 0 x 1
+## # i 1 variable: ...1 &lt;chr&gt;</code></pre>
+<p>I wasn’t expecting any option to turn a <span class="math inline">\(5 \times 0\)</span> table into a <span class="math inline">\(0 \times 1\)</span> table, but there it is.</p>
+<p>Writing the row names doesn’t improve matters much:</p>
+<pre class="r"><code>tf_rn &lt;- tempfile()
+write.csv(z, tf_rn, row.names = TRUE)
+readLines(tf_rn)</code></pre>
+<pre><code>## [1] &quot;\&quot;\&quot;&quot;   &quot;\&quot;1\&quot;,&quot; &quot;\&quot;2\&quot;,&quot; &quot;\&quot;3\&quot;,&quot; &quot;\&quot;4\&quot;,&quot; &quot;\&quot;5\&quot;,&quot;</code></pre>
+<pre class="r"><code>try(read.csv(tf_rn, row.names = TRUE))</code></pre>
+<pre><code>## Error in read.table(file = file, header = header, sep = sep, quote = quote,  : 
+##   more columns than column names</code></pre>
+<pre class="r"><code>try(parquetize::csv_to_parquet(tf_rn, path_to_parquet = tf_parquet))</code></pre>
+<pre><code>## Reading data...</code></pre>
+<pre><code>## Error : Could not guess the delimiter.
+## 
+## Use `vroom(delim =)` to specify one explicitly.</code></pre>
+<pre class="r"><code>vroom::vroom(tf_rn, delim = &quot;,&quot;)</code></pre>
+<pre><code>## New names:
+## Rows: 5 Columns: 1
+## -- Column specification
+## -------------------------------------------------------- Delimiter: &quot;,&quot; num
+## (1): ...1
+## i Use `spec()` to retrieve the full column specification for this data. i
+## Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## * `` -&gt; `...1`</code></pre>
+<pre><code>## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat &lt;- vroom(...)
+##   problems(dat)</code></pre>
+<pre><code>## # A tibble: 5 x 1
+##    ...1
+##   &lt;dbl&gt;
+## 1     1
+## 2     2
+## 3     3
+## 4     4
+## 5     5</code></pre>
+<p><code>vroom</code> now returns a <span class="math inline">\(5 \times 1\)</span> table, where the row names are misread as the single column’s values.</p>
+<p>How about <code>feather</code>?</p>
+<pre class="r"><code>tf_feather &lt;- tempfile()
+tf_feather_arrow &lt;- tempfile()
+feather::write_feather(z, tf_feather)
+feather::read_feather(tf_feather)</code></pre>
+<pre><code>## # A tibble: 5 x 0</code></pre>
+<pre class="r"><code>arrow::write_feather(z, tf_feather_arrow)
+arrow::read_feather(tf_feather_arrow)</code></pre>
+<pre><code>## # A tibble: 0 x 0</code></pre>
+<pre class="r"><code>try(feather::read_feather(tf_feather_arrow))</code></pre>
+<pre><code>## Error in eval(expr, envir, enclos) : Invalid: Not a feather file</code></pre>
+<pre class="r"><code>arrow::read_feather(tf_feather)</code></pre>
+<pre><code>## # A tibble: 5 x 0</code></pre>
+<p>We have slightly better luck here, depending on which package we use to handle Feather files.</p>
+<p>We’re not so lucky with <code>fst</code>:</p>
+<pre class="r"><code>tf_fst &lt;- tempfile()
+fst::write_fst(z, tf_fst)</code></pre>
+<pre><code>## Warning: package &#39;fstcore&#39; was built under R version 4.1.3</code></pre>
+<pre class="r"><code>fst::read_fst(tf_fst)</code></pre>
+<pre><code>## data frame with 0 columns and 0 rows</code></pre>
+<pre class="r"><code>arrow::write_parquet(z, tf_parquet_arrow)
+arrow::read_parquet(tf_parquet_arrow)</code></pre>
+<pre><code>## # A tibble: 0 x 0</code></pre>
+<p>Let’s summarise everything done about for the <span class="math inline">\(5 \times 0\)</span> table <code>z</code>:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">format</th>
+<th align="right">rows</th>
+<th align="right">cols</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">vroom w/o rownames</td>
+<td align="right">0</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">vroom w/ rownames</td>
+<td align="right">5</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">feather (write feather, read feather)</td>
+<td align="right">5</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">feather (write arrow, read arrow)</td>
+<td align="right">0</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">feather (write feather, read arrow)</td>
+<td align="right">5</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">fst</td>
+<td align="right">0</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">parquet</td>
+<td align="right">0</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p>The only library that gives the correct dimensions here is <code>feather</code>. However, its file-read result is a <code>tibble</code>, and we know they don’t handle zero-column tables properly, so things like checking for duplicates still won’t work properly. Additionally, it’s only correct when writing the file using the original <code>feather</code> package: that package hasn’t been updated since 2019, since the format was integrated into Apache Arrow, so the more current version gets it wrong.</p>
+</div>
+<div id="pandas-is-no-better" class="section level2">
+<h2>Pandas is no better</h2>
+<p>Come on, we can’t make it look like Python is preferable.</p>
+<pre class="python"><code>import pandas as pd</code></pre>
+<p>A 2x1 table works as expected:</p>
+<pre class="python"><code>x = pd.DataFrame(data = {&#39;a&#39;: [1, 1]})
+x</code></pre>
+<pre><code>##    a
+## 0  1
+## 1  1</code></pre>
+<pre class="python"><code>x.duplicated()</code></pre>
+<pre><code>## 0    False
+## 1     True
+## dtype: bool</code></pre>
+<pre class="python"><code>x.drop_duplicates()</code></pre>
+<pre><code>##    a
+## 0  1</code></pre>
+<p>But now let’s remove the only column:</p>
+<pre class="python"><code>y = x.iloc[[0, 1], []]
+y</code></pre>
+<pre><code>## Empty DataFrame
+## Columns: []
+## Index: [0, 1]</code></pre>
+<pre class="python"><code>y.duplicated()</code></pre>
+<pre><code>## Series([], dtype: bool)</code></pre>
+<pre class="python"><code>y.drop_duplicates()</code></pre>
+<pre><code>## Empty DataFrame
+## Columns: []
+## Index: [0, 1]</code></pre>
+<p>Like <code>data.table</code>, this treats the table as empty.</p>
+<p><code>duplicated</code> and <code>drop_duplicates</code> take a subset of columns to check: what if this subset is zero?</p>
+<pre class="python"><code>z = pd.DataFrame(data = {&#39;a&#39;: [1, 2]})
+z</code></pre>
+<pre><code>##    a
+## 0  1
+## 1  2</code></pre>
+<pre class="python"><code>try: z.duplicated(subset = [])
+except Exception as e: print(e)</code></pre>
+<pre><code>## not enough values to unpack (expected 2, got 0)</code></pre>
+<pre class="python"><code>try: z.drop_duplicates(subset = [])
+except Exception as e: print(e)</code></pre>
+<pre><code>## not enough values to unpack (expected 2, got 0)</code></pre>
+<p>Well, that’s no good either.</p>
+</div>
+<div id="why-its-like-this-and-possible-fixes" class="section level2">
+<h2>Why it’s like this, and possible fixes</h2>
+<p>I can’t say for the rest, but let’s look at base R’s code for <code>duplicated.data.frame</code>:</p>
+<pre class="r"><code>duplicated.data.frame</code></pre>
+<pre><code>## function (x, incomparables = FALSE, fromLast = FALSE, ...) 
+## {
+##     if (!isFALSE(incomparables)) 
+##         .NotYetUsed(&quot;incomparables != FALSE&quot;)
+##     if (length(x) != 1L) {
+##         if (any(i &lt;- vapply(x, is.factor, NA))) 
+##             x[i] &lt;- lapply(x[i], as.numeric)
+##         duplicated(do.call(Map, `names&lt;-`(c(list, x), NULL)), 
+##             fromLast = fromLast)
+##     }
+##     else duplicated(x[[1L]], fromLast = fromLast, ...)
+## }
+## &lt;bytecode: 0x0000000013327510&gt;
+## &lt;environment: namespace:base&gt;</code></pre>
+<p>Here we see an approach for looking for duplicate columns that I’ve used directly before: use <code>Map(list, x)</code>, after some tidying of <code>x</code>, to return a list of rows, where each row is given as the list of its values. We then check whether these rows are duplicated, so we’re comparing list elements instead of several columns at once.</p>
+<p>This is a reasonable approach if we have at least one column. What happens if we try this conversion with no columns?</p>
+<p>Data frames are stored as a list, with each element giving a column’s values, and the elements having to be the same length. If there are no columns, this list is empty:</p>
+<pre class="r"><code>unclass(z)</code></pre>
+<pre><code>## named list()
+## attr(,&quot;row.names&quot;)
+## [1] 1 2 3 4 5</code></pre>
+<p>Therefore, <code>Map(list, z)</code> returns an empty list, rather than a list of empty row lists:</p>
+<pre class="r"><code>Map(list, z)</code></pre>
+<pre><code>## named list()</code></pre>
+<p>When we pass this into <code>duplicated</code>, of course, we get a zero-length logical vector.</p>
+<p>I don’t think there’s much that can be done about this, outside of changing how data frames are stored. It’s a strange situation where only the row names show that there are supposed to be 5 rows. If we make a copy where they’re removed, as done in <code>data.table</code>, then this information is lost:</p>
+<pre class="r"><code>a &lt;- z
+attr(a, &quot;row.names&quot;) &lt;- NULL # skips `row.names&lt;-` sanity checks
+a</code></pre>
+<pre><code>## data frame with 0 columns and 0 rows</code></pre>
+<pre class="r"><code>unclass(a)</code></pre>
+<pre><code>## named list()</code></pre>
+<p>In turn, this information is only kept because, when asked for a data frame’s row count, R uses the row names:</p>
+<pre class="r"><code>nrow</code></pre>
+<pre><code>## function (x) 
+## dim(x)[1L]
+## &lt;bytecode: 0x00000000148107a0&gt;
+## &lt;environment: namespace:base&gt;</code></pre>
+<pre class="r"><code>dim.data.frame</code></pre>
+<pre><code>## function (x) 
+## c(.row_names_info(x, 2L), length(x))
+## &lt;bytecode: 0x0000000015f86fb8&gt;
+## &lt;environment: namespace:base&gt;</code></pre>
+<p>Effectively, the row names are used like a “header”, but for the rows instead of the columns. This is probably why, if you try to remove them with something like <code>row.names(a) &lt;- NULL</code>, R will immediately add integer row names as replcaements: removing row names completely would break the information about the table’s size, in a way that removing the column names can’t. We can see this with tables that have columns, too:</p>
+<pre class="r"><code>b &lt;- data.frame(a = 1:4, b = 2:3)
+dim(b)</code></pre>
+<pre><code>## [1] 4 2</code></pre>
+<pre class="r"><code>attr(b, &quot;row.names&quot;) &lt;- NULL
+dim(b) # R now thinks there are 0 rows...</code></pre>
+<pre><code>## [1] 0 2</code></pre>
+<pre class="r"><code>unclass(b) # ... but the data&#39;s still there</code></pre>
+<pre><code>## $a
+## [1] 1 2 3 4
+## 
+## $b
+## [1] 2 3 2 3</code></pre>
+<pre class="r"><code>length(b$a)</code></pre>
+<pre><code>## [1] 4</code></pre>
+<p>This means that we could fix <code>duplicated.data.frame</code> by having it make use of the row names. What would such an implementation of <code>duplicated</code> for tables look like? Writing it in a way that’s agnostic to the number of columns is easy enough, but might be inefficient:</p>
+<pre class="r"><code>duplicated2 &lt;- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
+  UseMethod(&quot;duplicated2&quot;)
+}
+duplicated2.data.frame &lt;- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
+  if (!isFALSE(incomparables)) 
+    .NotYetUsed(&quot;incomparables != FALSE&quot;)
+  if (any(i &lt;- vapply(x, is.factor, NA))) 
+    x[i] &lt;- lapply(x[i], as.numeric)
+  lst &lt;- lapply(
+    seq_along(row.names(x)),
+    function(row) `names&lt;-`(x[row, , drop = TRUE], NULL)
+  )
+  duplicated(lst, fromLast = fromLast, ...)
+}
+duplicated2(z)</code></pre>
+<pre><code>## [1] FALSE FALSE FALSE FALSE FALSE</code></pre>
+<pre class="r"><code>duplicated2(w)</code></pre>
+<pre><code>## [1] FALSE</code></pre>
+<pre class="r"><code>duplicated2(x)</code></pre>
+<pre><code>##  [1] FALSE FALSE FALSE FALSE FALSE FALSE  TRUE  TRUE  TRUE  TRUE  TRUE  TRUE</code></pre>
+<pre class="r"><code>duplicated2(y)</code></pre>
+<pre><code>## [1] FALSE  TRUE  TRUE  TRUE  TRUE</code></pre>
+<p>Maybe it’s just better to add a second explicit edge case, so we’re not relying on <code>nrow</code> using the row names:</p>
+<pre class="r"><code>duplicated3 &lt;- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
+  UseMethod(&quot;duplicated3&quot;)
+}
+duplicated3.data.frame &lt;- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
+    if (!isFALSE(incomparables)) 
+        .NotYetUsed(&quot;incomparables != FALSE&quot;)
+    if (length(x) == 0L) {
+      nr &lt;- nrow(x)
+      if (nr == 0L)
+        return(logical())
+      else
+        return(c(FALSE, rep_len(TRUE, nr - 1L)))
+    }
+    if (length(x) != 1L) {
+        if (any(i &lt;- vapply(x, is.factor, NA))) 
+            x[i] &lt;- lapply(x[i], as.numeric)
+        duplicated(do.call(Map, `names&lt;-`(c(list, x), NULL)), 
+            fromLast = fromLast)
+    }
+    else duplicated(x[[1L]], fromLast = fromLast, ...)}
+duplicated3(z)</code></pre>
+<pre><code>## [1] FALSE  TRUE  TRUE  TRUE  TRUE</code></pre>
+<pre class="r"><code>duplicated3(w)</code></pre>
+<pre><code>## [1] FALSE</code></pre>
+<pre class="r"><code>duplicated3(x)</code></pre>
+<pre><code>##  [1] FALSE FALSE FALSE FALSE FALSE FALSE  TRUE  TRUE  TRUE  TRUE  TRUE  TRUE</code></pre>
+<pre class="r"><code>duplicated3(y)</code></pre>
+<pre><code>## [1] FALSE  TRUE  TRUE  TRUE  TRUE</code></pre>
+<p>It looks like it would also be quicker, at least for small tables like these:</p>
+<pre class="r"><code>microbenchmark::microbenchmark(duplicated2(z), duplicated3(z), times = 1000)</code></pre>
+<pre><code>## Unit: microseconds
+##            expr    min     lq      mean median     uq   max neval cld
+##  duplicated2(z) 52.001 57.901 61.315697 58.802 60.201 200.9  1000   b
+##  duplicated3(z)  4.100  4.601  5.002903  4.801  5.000  35.0  1000  a</code></pre>
+<pre class="r"><code>microbenchmark::microbenchmark(duplicated2(w), duplicated3(w), times = 1000)</code></pre>
+<pre><code>## Unit: microseconds
+##            expr    min     lq      mean median     uq     max neval cld
+##  duplicated2(w) 17.201 18.801 20.373105 19.900 20.501 109.001  1000   b
+##  duplicated3(w)  3.700  4.301  4.741497  4.502  4.801  77.101  1000  a</code></pre>
+<pre class="r"><code>microbenchmark::microbenchmark(duplicated2(x), duplicated3(x), times = 1000)</code></pre>
+<pre><code>## Unit: microseconds
+##            expr     min      lq      mean   median       uq      max neval cld
+##  duplicated2(x) 165.701 183.651 200.17321 188.3015 199.7505 3213.101  1000   b
+##  duplicated3(x)  19.701  21.801  23.49253  22.6010  23.8010   66.701  1000  a</code></pre>
+<pre class="r"><code>microbenchmark::microbenchmark(duplicated2(y), duplicated3(y), times = 1000)</code></pre>
+<pre><code>## Unit: microseconds
+##            expr    min      lq     mean  median       uq     max neval cld
+##  duplicated2(y) 55.501 63.5015 94.08591 78.1015 113.0515 776.400  1000   b
+##  duplicated3(y)  7.800  8.7020 13.02047  9.7010  15.9010  64.601  1000  a</code></pre>
+<p>For <code>autodb</code> classes, I’ll probably be writing something like the latter, so I don’t have this edge case all over the code any more.</p>
+</div>
+<div id="environment-used" class="section level2">
+<h2>Environment used</h2>
+<p>R session information:</p>
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 4.1.2 (2021-11-01)
+## Platform: x86_64-w64-mingw32/x64 (64-bit)
+## Running under: Windows 10 x64 (build 22621)
+## 
+## Matrix products: default
+## 
+## locale:
+## [1] LC_COLLATE=English_United Kingdom.1252 
+## [2] LC_CTYPE=English_United Kingdom.1252   
+## [3] LC_MONETARY=English_United Kingdom.1252
+## [4] LC_NUMERIC=C                           
+## [5] LC_TIME=English_United Kingdom.1252    
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] fstcore_0.9.12    arrow_14.0.0.2    data.table_1.14.2 tibble_3.2.1     
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_1.0.8           mvtnorm_1.1-3        here_1.0.1          
+##  [4] lattice_0.20-45      zoo_1.8-9            png_0.1-7           
+##  [7] assertthat_0.2.1     rprojroot_2.0.2      digest_0.6.33       
+## [10] utf8_1.2.2           R6_2.5.1             RSQLite_2.3.4       
+## [13] evaluate_0.23        highr_0.9            blogdown_1.16       
+## [16] pillar_1.9.0         rlang_1.1.1          curl_4.3.2          
+## [19] multcomp_1.4-19      rstudioapi_0.13      jquerylib_0.1.4     
+## [22] blob_1.2.2           Matrix_1.3-4         parquetize_0.5.6.1  
+## [25] reticulate_1.23      rmarkdown_2.18       splines_4.1.2       
+## [28] feather_0.3.5        readr_2.1.1          stringr_1.4.0       
+## [31] bit_4.0.4            compiler_4.1.2       xfun_0.35           
+## [34] pkgconfig_2.0.3      microbenchmark_1.4.9 htmltools_0.5.2     
+## [37] tidyselect_1.2.0     bookdown_0.24        codetools_0.2-18    
+## [40] fansi_1.0.2          crayon_1.4.2         dplyr_1.1.3         
+## [43] tzdb_0.4.0           withr_2.5.0          MASS_7.3-54         
+## [46] grid_4.1.2           jsonlite_1.8.7       lifecycle_1.0.3     
+## [49] DBI_1.1.2            magrittr_2.0.3       cli_3.6.1           
+## [52] stringi_1.7.6        vroom_1.6.5          cachem_1.0.6        
+## [55] bslib_0.3.1          ellipsis_0.3.2       generics_0.1.2      
+## [58] vctrs_0.6.4          sandwich_3.0-2       fst_0.9.8           
+## [61] TH.data_1.1-1        tools_4.1.2          forcats_0.5.1       
+## [64] bit64_4.0.5          glue_1.6.2           purrr_1.0.2         
+## [67] hms_1.1.1            survival_3.2-13      parallel_4.1.2      
+## [70] fastmap_1.1.0        yaml_2.2.1           memoise_2.0.1       
+## [73] knitr_1.41           haven_2.4.3          sass_0.4.0</code></pre>
+<p>Python version (a little old, but installing/updating things in Python is so awful I don’t want to do it again):</p>
+<pre class="python"><code>import sys
+print(sys.version)</code></pre>
+<pre><code>## 3.10.4 (tags/v3.10.4:9d38120, Mar 23 2022, 23:13:41) [MSC v.1929 64 bit (AMD64)]</code></pre>
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>That message about <code>duplicated</code> only applying to vectors is a consequence of there being no <code>duplicated</code> method for Arrow tables.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p>Feather and Parquet files can also be read with the <code>arrow</code> package, with the same result, since both are integrated with Apache Arrow.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
