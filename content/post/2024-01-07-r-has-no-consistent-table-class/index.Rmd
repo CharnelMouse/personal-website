@@ -7,12 +7,15 @@ categories: []
 tags:
 - Programming
 - R
+- Python
+- Rust
 - Relational model
 - autodb
-subtitle: ''
+- Data structures
+subtitle: "And neither do Python and Rust"
 summary: ''
 authors: []
-lastmod: '2024-01-08'
+lastmod: '2024-03-25'
 featured: no
 draft: no
 image:
@@ -30,24 +33,24 @@ R, in addition to being array-based, can also be table-based: it has a table cla
 Here are some simple examples:
 
 ```{r}
-x <- data.frame(
+twocols <- data.frame(
   a = rep(1:3, 4),
   b = rep(1:2, 6)
 )
-x
-y <- data.frame(
+twocols
+onecol <- data.frame(
   a = rep(1, 5)
 )
-y
+onecol
 ```
 
 One thing we can do with these tables is to look for, or remove, duplicate rows:
 
 ```{r}
-duplicated(x)
-duplicated(y)
-unique(x)
-unique(y)
+duplicated(twocols)
+duplicated(onecol)
+unique(twocols)
+unique(onecol)
 ```
 
 Simple enough, right? Right.
@@ -57,29 +60,29 @@ Simple enough, right? Right.
 Now let's try this with a data frame with no columns. This is something that R allows, so this should work as expected.
 
 ```{r}
-z <- y[, FALSE, drop = FALSE]
-z
+nocol <- onecol[, FALSE, drop = FALSE]
+nocol
 ```
 
 Now, what do we expect to happen when we look for duplicates? Well, every row is the same, so every row after the first is a duplicate, so `unique` should leave a single row. The fact that the rows contain no data is irrelevant. What actually happens?
 
 ```{r}
-duplicated(z)
+duplicated(nocol)
 ```
 
 `duplicated` returns a zero-length vector, as if there were no rows. This results in R claiming there are no rows after removing duplicates:
 
 ```{r}
-unique(z)
+unique(nocol)
 ```
 
 Uh oh. How about if we only have the one row to begin with?
 
 ```{r}
-w <- z[1, , drop = FALSE]
-w
-duplicated(w)
-unique(w)
+nocol_onerow <- nocol[1, , drop = FALSE]
+nocol_onerow
+duplicated(nocol_onerow)
+unique(nocol_onerow)
 ```
 
 Oh, dear.
@@ -99,14 +102,14 @@ There are a few reasons an empty key is a problem in R, given how we saw its dat
 For example, suppose `x` above has both of its columns as its sole key. Does the key have unique values over its rows? No, because there are duplicates:
 
 ```{r}
-x_key <- c("a", "b")
-anyDuplicated((x[, x_key, drop = FALSE])) # returns 0 if unique
+twocols_key <- c("a", "b")
+anyDuplicated((twocols[, twocols_key, drop = FALSE])) # returns 0 if unique
 ```
 
 However, removing the duplicates makes the key values unique:
 
 ```{r}
-anyDuplicated(unique(x)[, x_key, drop = FALSE])
+anyDuplicated(unique(twocols)[, twocols_key, drop = FALSE])
 ```
 
 Now, let's try validating a valid table with an empty key, which can only have 0 or 1 rows:
@@ -144,7 +147,7 @@ dups
 u[dups, , drop = FALSE]
 ```
 
-## Third-party table classes are inconsistent too
+## Tibbles are inconsistent
 
 OK, R's base `data.frame` class is inconsistent, but people also like to use the `tibble` and `data.table` classes instead, from their eponymous libraries. Do they do any better?
 
@@ -152,63 +155,82 @@ Here's `tibble`:
 
 ```{r}
 library(tibble)
-z_tib <- as_tibble(z) # should be 5x0
-z_tib
-w_tib <- as_tibble(w) # should be 1x0
-w_tib
-duplicated(z_tib)
-try(unique(z_tib))
-duplicated(w_tib)
-try(unique(w_tib))
+nocol_tib <- as_tibble(nocol) # should be 5x0
+nocol_tib
+nocol_onerow_tib <- as_tibble(nocol_onerow) # should be 1x0
+nocol_onerow_tib
 ```
 
-That's no good. How about `data.table`?
+The row counts are preserved, as before.
+
+```{r}
+duplicated(nocol_tib)
+try(unique(nocol_tib))
+duplicated(nocol_onerow_tib)
+try(unique(nocol_onerow_tib))
+```
+
+Asking for unique rows, however, returns an error. That's no good, although it's probably better than the base data frames silently doing the wrong thing.
+
+## Data tables are inconsistent
+
+How about `data.table`?
 
 ```{r}
 library(data.table)
-z_dt <- as.data.table(z) # should be 5x0
-z_dt
-w_dt <- as.data.table(w) # should be 5x0
-w_dt
-duplicated(z_dt)
-unique(z_dt)
-duplicated(w_dt)
-unique(w_dt)
+nocol_dt <- as.data.table(nocol) # should be 5x0
+nocol_dt
+nocol_onerow_dt <- as.data.table(nocol_onerow) # should be 1x0
+nocol_onerow_dt
 ```
 
 As much as I like `data.table` over `tibble`, this is even worse: the rows are all dropped on conversion. Creating the table directly as a `data.table`, instead of converting from a `data.frame`, makes no difference.
 
-These are the main three table classes, but there are a few others. I looked at a few used for large data storage, but assessing most of them requires writing and reading to a file, rather than directly converting from a data frame. I'll go over this in the next section.
+## Arrow tables are inconsistent
 
-The one I found that does take direct conversion is `arrow`, which is an interface for Apache's Arrow C++ library. How does `arrow` do?
+Another table class is `arrow`, which is an interface for Apache's Arrow C++ library. How does `arrow` do?
 
 ```{r}
 library(arrow)
-z_arw <- as_arrow_table(z)
-z_arw
-w_arw <- as_arrow_table(w)
-w_arw
-try(duplicated(z_arw))
-unique(z_arw)
-try(duplicated(w_arw))
-unique(w_arw)
+nocol_arw <- as_arrow_table(nocol)
+nocol_arw
+nocol_onerow_arw <- as_arrow_table(nocol_onerow)
+nocol_onerow_arw
 ```
 
-Not well.[^1]
+Not well: all rows are dropped, as they were for `data.table`.
 
-[^1]: That message about `duplicated` only applying to vectors is a consequence of there being no `duplicated` method for Arrow tables.
+```{r}
+try(duplicated(nocol_arw))
+unique(nocol_arw)
+try(duplicated(nocol_onerow_arw))
+unique(nocol_onerow_arw)
+```
+
+Furthermore, `duplicated`, can't be used at all, because there's no `duplicated` method for Arrow tables, only one for `unique`.
 
 ## Files and file-driven table classes aren't consistent either
 
-We'll look at three file-driven classes here: `feather` and `fst` from their eponymous packages, and `parquet`. Since `parquet` should be able to read from several file formats, we'll check this one as we go.[^2] We also end up looking briefly at `vroom`, due to some error messages from `parquet`.
+We've looked at table classes within an R session. How do file formats do for read/write operations handling zero columns properly?
 
-[^2]: Feather and Parquet files can also be read with the `arrow` package, with the same result, since both are integrated with Apache Arrow.
+We look at four formats here[^0]:
+
+[^0]: We don't consider `data.table`'s `fread` and `fwrite` here, since we know that the `data.table` format can't handle zero columns anyway.
+
+- `csv`, handled with basic R read/write functions, and the `parquetize` and `vroom` packages;
+- `feather`, handled with the `feather` and `arrow` packages;
+- `fst`, handled with the `fst` package;
+- `parquet`, handled with the `parquetize` and `arrow` packages.
+
+Since `parquet` should be able to read from several file formats, we check this one as we go.[^1]
+
+[^1]: Feather and Parquet files can also be read with the `arrow` package, with the same result, since both are integrated with Apache Arrow.
 
 The basic issue is that writing a zero-column data frame to a CSV file results in something that can't be parsed properly:
 
 ```{r}
 tf <- tempfile()
-write.csv(z, tf, row.names = FALSE)
+write.csv(nocol, tf, row.names = FALSE)
 readLines(tf)
 try(read.csv(tf, row.names = FALSE))
 ```
@@ -228,11 +250,13 @@ Writing the row names doesn't improve matters much:
 
 ```{r}
 tf_rn <- tempfile()
-write.csv(z, tf_rn, row.names = TRUE)
+write.csv(nocol, tf_rn, row.names = TRUE)
 readLines(tf_rn)
 try(read.csv(tf_rn, row.names = TRUE))
 try(parquetize::csv_to_parquet(tf_rn, path_to_parquet = tf_parquet))
-vroom::vroom(tf_rn, delim = ",")
+vroom_tf_rn <- vroom::vroom(tf_rn, delim = ",")
+subset(vroom::problems(vroom_tf_rn), , -file)
+vroom_tf_rn
 ```
 
 `vroom` now returns a $5 \times 1$ table, where the row names are misread as the single column's values.
@@ -242,9 +266,9 @@ How about `feather`?
 ```{r}
 tf_feather <- tempfile()
 tf_feather_arrow <- tempfile()
-feather::write_feather(z, tf_feather)
+feather::write_feather(nocol, tf_feather)
 feather::read_feather(tf_feather)
-arrow::write_feather(z, tf_feather_arrow)
+arrow::write_feather(nocol, tf_feather_arrow)
 arrow::read_feather(tf_feather_arrow)
 try(feather::read_feather(tf_feather_arrow))
 arrow::read_feather(tf_feather)
@@ -256,13 +280,13 @@ We're not so lucky with `fst`:
 
 ```{r}
 tf_fst <- tempfile()
-fst::write_fst(z, tf_fst)
+fst::write_fst(nocol, tf_fst)
 fst::read_fst(tf_fst)
-arrow::write_parquet(z, tf_parquet_arrow)
+arrow::write_parquet(nocol, tf_parquet_arrow)
 arrow::read_parquet(tf_parquet_arrow)
 ```
 
-Let's summarise everything done above for the $5 \times 0$ table `z`:
+Let's summarise everything done above for the $5 \times 0$ table `nocol`:
 
 ```{r, echo=FALSE, results='hide'}
 dim_summary <- data.frame(
@@ -308,7 +332,7 @@ dim_summary <- data.frame(
 knitr::kable(dim_summary)
 ```
 
-The only library that gives the correct dimensions here is `feather`. However, its file-read result is a `tibble`, and we know they don't handle zero-column tables properly, so things like checking for duplicates still won't work properly. Additionally, it's only correct when writing the file using the original `feather` package: that package hasn't been updated since 2019, since the format was integrated into Apache Arrow, so the more current version gets it wrong.
+The only library that gives the correct dimensions here is `feather` as the file writer. However, it's only correct when writing the file using the original `feather` package: that package hasn't been updated since 2019, since the format was integrated into Apache Arrow and it was integrated into `arrow`, so there are no maintained packages that get this right.
 
 ## Pandas is no better
 
@@ -321,65 +345,81 @@ import pandas as pd
 A 2x1 table works as expected:
 
 ```{python}
-x = pd.DataFrame(data = {'a': [1, 1]})
-x
-x.duplicated()
-x.drop_duplicates()
+py_onecol = pd.DataFrame(data = {'a': [1, 1]})
+py_onecol
+py_onecol.duplicated()
+py_onecol.drop_duplicates()
 ```
+
 But now let's remove the only column:
 
 ```{python}
-y = x.iloc[[0, 1], []]
-y
-y.duplicated()
-y.drop_duplicates()
+py_nocol = py_onecol.iloc[[0, 1], []]
+py_nocol
+py_nocol.duplicated()
+py_nocol.drop_duplicates()
 ```
 
 Like `data.table`, this treats the table as empty.
 
-`duplicated` and `drop_duplicates` take a subset of columns to check: what if this subset is zero?
+`duplicated` and `drop_duplicates` take a subset of columns to check, so we could use this for uniqueness checks by taking the subset as our key. What if the table has a non-zero number of columns, but the key is empty?
 
 ```{python}
-z = pd.DataFrame(data = {'a': [1, 2]})
-z
-try: z.duplicated(subset = [])
+py_onecol2 = pd.DataFrame(data = {'a': [1, 2]})
+py_onecol2
+try: py_onecol2.duplicated(subset = [])
 except Exception as e: print(e)
-try: z.drop_duplicates(subset = [])
+try: py_onecol2.drop_duplicates(subset = [])
 except Exception as e: print(e)
 ```
 
 Well, that's no good either.
 
+## Rust's polars is no better
+
+[As it turns out](https://github.com/pola-rs/r-polars), we can call Rust's polars library for data frames from R:
+
+```{r}
+library(polars)
+ps <- pl$DataFrame(a = 1:5)
+ps
+rownames(ps)
+ps$select()
+rownames(ps$select())
+```
+
+This is the same behaviour as that of `data.table` -- not surprising, since polars is inspired by pandas -- so even the Rustaceans don't get this right.
+
 ## Why it's like this, and possible fixes
 
-I can't say for the rest, but let's look at base R's code for `duplicated.data.frame`:
+I can't say for the other implementations, but let's look at base R's code for `duplicated.data.frame`:
 
 ```{r}
 duplicated.data.frame
 ```
 
-Here we see an approach for looking for duplicate columns that I've used directly before: use `Map(list, x)`, after some tidying of `x`, to return a list of rows, where each row is given as the list of its values. We then check whether these rows are duplicated, so we're comparing list elements instead of several columns at once.
+Here we see an approach for looking for duplicate columns that I've used directly before: use `Map(list, x)`, after some tidying of `x`, to return a list of rows, where each row is given as the list of its values. Effectively, we take the column-based data frame format, and turn it inside out to get a row-based format. We then check whether these rows are duplicated, using `duplicated`'s default method, so we're comparing list elements instead of several columns at once.
 
 This is a reasonable approach if we have at least one column. What happens if we try this conversion with no columns?
 
 Data frames are stored as a list, with each element giving a column's values, and the elements having to be the same length. If there are no columns, this list is empty:
 
 ```{r}
-unclass(z)
+unclass(nocol)
 ```
 
 Therefore, `Map(list, z)` returns an empty list, rather than a list of empty row lists:
 
 ```{r}
-Map(list, z)
+Map(list, nocol)
 ```
 
 When we pass this into `duplicated`, of course, we get a zero-length logical vector.
 
-I don't think there's much that can be done about this, outside of changing how data frames are stored. It's a strange situation where only the row names show that there are supposed to be 5 rows. If we make a copy where they're removed, as done in `data.table`, then this information is lost:
+I don't think there's much that can be done about this, outside of changing how data frames are stored. It's a strange situation where only the row names preserve the row count. If we make a copy where they're removed, as done in `data.table`, then this information is lost:
 
 ```{r}
-a <- z
+a <- nocol
 attr(a, "row.names") <- NULL # skips `row.names<-` sanity checks
 a
 unclass(a)
@@ -392,12 +432,12 @@ nrow
 dim.data.frame
 ```
 
-Effectively, the row names are used like a "header", but for the rows instead of the columns. This is probably why, if you try to remove them with something like `row.names(a) <- NULL`, R will immediately add integer row names as replcaements: removing row names completely would break the information about the table's size, in a way that removing the column names can't. We can see this with tables that have columns, too:
+Effectively, the row names are used like a "header", but for the rows instead of the columns. This is probably why, if you try to remove them with something like `row.names(a) <- NULL`, R immediately adds integer row names as replacements: removing row names completely would break the information about the table's size, in a way that removing the column names can't. We can see this with tables that have columns, too:
 
 ```{r}
 b <- data.frame(a = 1:4, b = 2:3)
 dim(b)
-attr(b, "row.names") <- NULL
+attr(b, "row.names") <- NULL # attr lets us treat classes as mere suggestions
 dim(b) # R now thinks there are 0 rows...
 unclass(b) # ... but the data's still there
 length(b$a)
@@ -416,14 +456,14 @@ duplicated2.data.frame <- function(x, incomparables = FALSE, fromLast = FALSE, .
     x[i] <- lapply(x[i], as.numeric)
   lst <- lapply(
     seq_along(row.names(x)),
-    function(row) `names<-`(x[row, , drop = TRUE], NULL)
+    function(row) `rownames<-`(`names<-`(x[row, , drop = TRUE], NULL), NULL)
   )
   duplicated(lst, fromLast = fromLast, ...)
 }
-duplicated2(z)
-duplicated2(w)
-duplicated2(x)
-duplicated2(y)
+duplicated2(nocol)
+duplicated2(nocol_onerow)
+duplicated2(twocols)
+duplicated2(onecol)
 ```
 
 Maybe it's just better to add a second explicit edge case, so we're not relying on `nrow` using the row names:
@@ -449,22 +489,44 @@ duplicated3.data.frame <- function(x, incomparables = FALSE, fromLast = FALSE, .
             fromLast = fromLast)
     }
     else duplicated(x[[1L]], fromLast = fromLast, ...)}
-duplicated3(z)
-duplicated3(w)
-duplicated3(x)
-duplicated3(y)
+duplicated3(nocol)
+duplicated3(nocol_onerow)
+duplicated3(twocols)
+duplicated3(onecol)
 ```
 
 It looks like it would also be quicker, at least for small tables like these:
 
 ```{r}
-microbenchmark::microbenchmark(duplicated2(z), duplicated3(z), times = 1000)
-microbenchmark::microbenchmark(duplicated2(w), duplicated3(w), times = 1000)
-microbenchmark::microbenchmark(duplicated2(x), duplicated3(x), times = 1000)
-microbenchmark::microbenchmark(duplicated2(y), duplicated3(y), times = 1000)
+microbenchmark::microbenchmark(
+  duplicated2(nocol),
+  duplicated3(nocol),
+  times = 1000,
+  check = "identical"
+)
+microbenchmark::microbenchmark(
+  duplicated2(nocol_onerow),
+  duplicated3(nocol_onerow),
+  times = 1000,
+  check = "identical"
+)
+microbenchmark::microbenchmark(
+  duplicated(twocols),
+  duplicated2(twocols),
+  duplicated3(twocols),
+  times = 1000,
+  check = "identical"
+)
+microbenchmark::microbenchmark(
+  duplicated(onecol),
+  duplicated2(onecol),
+  duplicated3(onecol),
+  times = 1000,
+  check = "identical"
+)
 ```
 
-For `autodb` classes, I'll probably be writing something like the latter, so I don't have this edge case all over the code any more.
+For `autodb` classes, I'll probably be writing something like `duplicated3` for internal use, so I don't have this edge case all over the code any more.
 
 ## Environment used
 
