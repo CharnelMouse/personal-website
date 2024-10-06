@@ -61,9 +61,9 @@ df</code></pre>
 ## [16] identify      image         is.na         length        levels       
 ## [21] lines         Math          median        names         names&lt;-      
 ## [26] Ops           pairs         plot          points        print        
-## [31] rep.int       rep           rep_len       rev           Summary      
-## [36] survfit       t             tail          text          unique       
-## [41] xtfrm        
+## [31] quantile      rep.int       rep           rep_len       rev          
+## [36] Summary       survfit       t             tail          text         
+## [41] unique        xtfrm        
 ## see &#39;?methods&#39; for accessing help and source code</code></pre>
 <p>Allowing censored values, intervals etc. means it can’t actually just be a simple vector, though, right? Let’s look at how it’s stored:</p>
 <pre class="r"><code>unclass(times)</code></pre>
@@ -142,7 +142,7 @@ ds</code></pre>
 ##   key 1: a
 ## schema b: b, c
 ##   key 1: b
-## relationships:
+## references:
 ## a.{b} -&gt; b.{b}</code></pre>
 <pre class="r"><code>c(ds, ds)</code></pre>
 <pre><code>## database schema with 4 relation schemas
@@ -155,7 +155,7 @@ ds</code></pre>
 ##   key 1: a
 ## schema b.1: b, c
 ##   key 1: b
-## relationships:
+## references:
 ## a.{b} -&gt; b.{b}
 ## a.1.{b} -&gt; b.1.{b}</code></pre>
 <pre class="r"><code>unique(c(ds, ds))</code></pre>
@@ -165,7 +165,7 @@ ds</code></pre>
 ##   key 1: a
 ## schema b: b, c
 ##   key 1: b
-## relationships:
+## references:
 ## a.{b} -&gt; b.{b}</code></pre>
 <p>This means that database and database schema objects are <em>not</em> vectorised: a database isn’t a vector of databases, and so on. However, it’s rare that we care about more than one database at a time, and we now have vectorisation where it matters: referring to a set of relations or relation schemas, which can now be reordered, concatenated, etc. with R’s basic operators. Writing these operators for a database etc. is now usually a case of calling the operator for the contained relation vector, and then adjusting the constraints wrapper accordingly. This wrapper adjustment is then usually the same for database schemas. If I’d known to write the classes like this from the beginning, it would have saved a ton of work, but, as it is, it still makes for a more elegant class model.</p>
 <div class="footnotes footnotes-end-of-document">
