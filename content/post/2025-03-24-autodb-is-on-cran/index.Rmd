@@ -1,0 +1,328 @@
+---
+title: autodb is on CRAN
+date: 2025-03-24
+author: ~
+slug: autodb-is-on-cran
+categories: []
+tags:
+  - Programming
+  - R
+  - Relational model
+  - autodb
+subtitle: ''
+summary: ''
+authors: []
+featured: no
+draft: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+math: true
+---
+
+I'm pleased to announce that [`autodb` is now on
+CRAN](https://cran.r-project.org/package=autodb), in addition to Github. I
+haven't submitted anything to CRAN before, so I'm really pleased.
+
+It's been a bit of a long road: I started writing it nearly three years ago.
+This was a side project, and I'm not the quickest worker to begin with.
+Hopefully, the trade-off is that there aren't many bugs left in what I have
+written.
+
+Here are a few things I learned in the process. Some more positive ones first:
+
+## Property tests are an eye-opener
+
+Property testing is probably my favourite discovery when writing the package, as
+far as the implementation side of things was concerned.
+
+One of the issues with unit/behaviour tests, even if you write them correctly,
+is that the design intent underlying the tests can become easy to lose amidst a
+forest of individual test cases. You have all these example cases as your
+specification, but can you really work out what it's getting at?
+
+Usually, each unit test is a simplification of some underlying property that you
+have in mind, only keeping and testing details relevant to the given test case:
+
+```{r, echo = FALSE}
+DiagrammeR::grViz("
+digraph {
+  rankdir = LR;
+  subgraph cluster_1 {
+    label = 'many test cases';
+    case[label = 'test case'];
+    code[label = 'property example'];
+    {case, code} -> result;
+  }
+  {property, case} -> code;
+}
+")
+```
+
+Instead, we could have the code depend only on the property itself, so that it
+should pass for any given test case:
+
+```{r, echo = FALSE}
+DiagrammeR::grViz("
+digraph {
+  rankdir = LR;
+  subgraph cluster_1 {
+      label = 'many test cases';
+    case[label = 'test case'];
+    case -> result;
+  }
+  property -> result;
+}
+")
+```
+
+This doesn't come for free: writing properties that can take arbitrary test
+cases, without just re-implementing whatever it's supposed to test, is much more
+difficult.
+
+However, if we can do this, then we can now make a larger simplification:
+instead of writing a ton of test cases, we can instead write something to
+randomly generate test cases, replacing our forest of examples with a single
+property description. This single description is then quietly checked against a
+forest of random examples whenever we run the test suite:
+
+```{r, echo = FALSE}
+DiagrammeR::grViz("
+digraph {
+  rankdir = LR;
+  generator[label = 'test case generator'];
+  {generator, property} -> result;
+}
+")
+```
+
+Because we are testing the property more directly, this also makes it easier to
+describe our system with a more formal, mathematical approach.
+
+Randomly generating the test cases makes it easier to find more obscure bugs.
+They certainly caught a few that I would never have noticed, some of which were
+flaws in my understanding of the details of implementing database normalisation.
+
+You might imagine that randomly-generated test cases can be rather complex, so
+that, if a case fails, it can be hard to pin down why. To deal with this,
+property testing libraries do something called "shrinking", where they try to
+simplify failing cases before returning them to the user. You therefore get the
+coverage of random test case generation, but the interpretability of minimal
+failing examples.
+
+The trade-off is having to work out how to define your systems in properties
+that hold across arbitrary test cases, but the pay-off is rather wonderful. I
+think that writing in terms of these properties has helped develop and formalise
+my own understanding of the relational model and normalisation. It's certainly
+been a quick way to take my assumed rules of thumb, and poke holes in them,
+showing how they're over-simplifications for what I need to do.
+
+If any of that sounds interesting, I'd recommend giving a property testing
+library a try:
+
+- The original is
+[`QuickCheck`](https://hackage.haskell.org/package/QuickCheck) for Haskell.
+- In R, I used
+[`hedgehog`](https://cran.r-project.org/web/packages/hedgehog/index.html), which
+also has implementations in Haskell, F#, and Scala. I would go to [the Github
+page](https://github.com/hedgehogqa/r-hedgehog), because [their main
+site](https://hedgehog.qa/) isn't as useful as it used to be, not mentioning
+these libraries at all: another unfortunate casualty of the current "AI" craze.
+- There's also
+[`testthat`](https://cran.r-project.org/web/packages/quickcheck/index.html),
+that builds on `hedgehog`, providing more useful generators out of the box.
+- For those of you having to use Python, there's
+[`hypothesis`](https://hypothesis.works/).
+
+General resources:
+
+- [Scott Wlaschin's series of
+posts](https://fsharpforfunandprofit.com/posts/property-based-testing/) are a
+good place to start for a proper explanation of property tests, and why they're
+useful.
+- John Hughes, the co-creator of `QuickCheck`, has some excellent talks to look at
+([1](https://www.youtube.com/watch?v=zi0rHwfiX1Q),
+[2](https://www.youtube.com/watch?v=G0NUOst-53U),
+[3](https://www.youtube.com/watch?v=H18vxq-VsCk)). I'd recommend looking at
+Wlaschin's articles first, since these talks jump straight to property tests for
+stateful systems.
+- Hillel Wayne has [a post](https://www.hillelwayne.com/post/metamorphic-testing/)
+about a related technique called metamorphic testing, with links to papers
+making use of it. The second Hughes talk mentions it too, and it's also very
+useful. Wayne has posts on property testing, too, usually using `hypothesis`.
+
+## R bugs can get fixed quickly
+
+Speaking of property tests, one of said tests led me to find a bug in base R.
+Looking back at [my post on it](../2024-01-07-4-has-no-consistent-table-class),
+I don't think I explained it particularly well -- it could do with a rewrite --
+but the short version is that calling `duplicated` on a data frame with zero
+columns always returns an empty vector. This leads to, for example, `unique`
+always removing all of the rows, instead of all but one.
+
+This got me applying for R's Bugzilla bug tracking system. Getting approved does
+take a while: the maintainers are cautious about adding new people, because
+they've had spammer problems before. It's easy to assume that this indicates the
+rate of pace for bug fixes, too. However, when I reported the bug, it was fixed
+on trunk that same day. This was a pleasant surprise, and I'd be more eager to
+report bugs in the future.
+
+***
+
+OK, that's enough positivity. Here are some more technical matters.
+
+## Floating-point sucks even more than I thought
+
+Something that I didn't see mentioned, in papers discussing algorithms for
+functional dependency discovery, is the issue of floating-point variables. I'm
+assuming this is because they're usually reading data from a file, rather than
+from a table inside a session, so they always have the option of reading
+floating-point values as strings. If you don't, you get to deal with how awkward
+floating-point values are for discovery.
+
+Floating-point is always awkward. The go-to text about them is [What every
+computer scientist should know about floating-point
+arithmetic](https://dl.acm.org/doi/10.1145/103162.103163), but I haven't read
+it. What I did read, back in the day, was [The R
+Inferno](https://www.burns-stat.com/documents/books/the-r-inferno/). It's
+longer, but an easier read, and more R-specific.
+
+The main issue with floating-point values is that, while you can compare them
+for equality, you shouldn't, because the limited precision inherent to
+floating-point results in unintuitive results. For example, these are all false:
+
+```{r, eval = FALSE}
+.1 == .3/3
+.1 == .3 - .2
+sin(pi) == 0
+```
+
+The usual answer to this in R is to use `all.equal`, which states numbers to be
+"nearly equal" if they're within a (usually-relative) tolerance distance of each
+other. Unfortunately, that's not an option when searching for functional
+dependencies in a data frame, the goal of the `discover` function.
+
+Functional dependencies are generic: they have weak conditions on the data types
+they work with. The only condition is that, when you compare two values for the
+same attribute for *equivalence*, the answer is true or false. The choice of
+equivalence relation ($\sim$) doesn't overly matter -- equality is the usual
+one, of course -- but one important requirement is that it must be an
+[equivalence relation](https://en.wikipedia.org/wiki/Equivalence_relation), and
+that means that it must be transitive: if $x \sim y$ and $x \sim z$ are true,
+then $y \sim z$ must also be true. This disqualifies `all.equal`, because you
+can easily set up failing examples:
+
+```{r}
+y <- 0
+z <- .Machine$double.eps
+x <- z/2
+all.equal(x, y)
+all.equal(x, z)
+all.equal(y, z)
+```
+
+If you're breaking up a table according to which rows have equivalent values in
+which variables, then the last thing you want is equivalence statements to be
+incoherent.
+
+What do you use instead? My rather naïve assumption was that using exact
+equality might not be a problem. A lot of issues with floating-point come when
+doing calculations, but `discover` is only comparing values in a data frame,
+probably one that's been read from a file. So, comparing with equality should be
+fine, right? All R implementations conform to the same standard for
+floating-point (IEC 60559 / IEEE 754 / "binary64"), so, if they're given the
+same numbers to convert, they should all agree on which numbers have equal
+floating-point representations, right?
+
+Goodness me, how naïve. Testing on R-hub immediately showed different behaviour
+on some Mac systems. Asking around, as far as I can tell, it's down to
+differences between x64 and ARM architectures: they round a given plain-text
+number into a floating-point number to different ways, so, even when comparing
+"non-computed" values, they can give different results. For example, whether
+$8.54917750000000076227$ and $8.54917749999999898591$ have the same
+floating-point representation varies by architecture.
+
+With equality and near-equality out as options, the correct approach, of course,
+is to round the floating-point values, enough to make the result
+architecture-independent, and then compare for equality. This approach is
+transitive, because you're counting values as equivalent if they round to the
+same value, a sort of rough binning. Some of base R is already set up for this,
+so I had something to go on, but I had been hoping to delay having to deal with
+it until I'd gotten a first published version. But no, adding arguments in
+various places for how much to round was necessary.
+
+This will be even worse in the future, when I get to grips with allowing columns
+with non-primitive data types, because they could easily be list values
+containing non-rounded floating-point values. I'm still not sure how I'm going
+to deal with that.
+
+Floating-point sucks.
+
+## `devtools:check()` needs some tweaking
+
+Like a lot of package writers, I depended on the `devtools` package to
+streamline some of the preparation and checks. It's a very useful tool. However,
+when it comes to preparing for CRAN, you can save yourself some bother by not
+using some of the default argument values.
+
+In particular, I'd say to set `manual = TRUE`, to test building the manual. My
+HTML documentation was generating fine, but the PDF version was not, and I didn't
+realise this until I started running checks on Win-builder. Turning on manual
+builds locally would have saved me some time and grief.
+
+## Rein in the property tests for CRAN
+
+I talked about how great property tests are. One drawback is that, because
+they're running against many test cases -- a hundred by default in the
+`hedgehog` package -- the running time for the test suite can soar dramatically.
+This is a problem when submitting for CRAN, because they require `R CMD CHECK`
+to run within ten minutes on Win-builder.
+
+I think dealing with this is the first time I've actually appreciated being able
+to easily modify something in `options()`. In `tests/testthat/setup.r`, I can
+just write
+
+```{r, eval = FALSE}
+library(hedgehog)
+if (!isTRUE(as.logical(Sys.getenv("NOT_CRAN", "false"))))
+  options(hedgehog.tests = 25)
+```
+
+and now the tests run less cases by default (compared to 100), but only when
+being run on CRAN. It just takes a bit of tweaking on the test count and
+testing against Win-builder.
+
+Speaking of Win-builder, it took me a while to notice that the test running time
+was the sole remaining problem: the check log mentioned a NOTE, but didn't
+explain it. It's worth going through `examples_and_tests/tests/testthat.Rout` on
+the Win-builder results, and checking the given running time. One of mine lasted
+628.96 seconds, that got rounded to ten minutes for the summary in
+`00check.log`, so it wasn't immediately obvious that it had taken too long.
+
+## Look for hidden references
+
+When I started making fixes and improvements to the initial port, I went to [the
+paper for
+DFD](https://hpi.de/oldsite/fileadmin/user_upload/fachgebiete/naumann/publications/PDFs/2014_abedjan_dfd.pdf)
+pretty quickly. The pseudocode was reasonably clear, although there were some
+non-handled cases, that also appeared in the Python library I originally took
+inspiration from.
+
+However, what I didn't realise, until about two and a half years later, was that
+the code used for the paper is also public, and part of [a larger-scope
+project](metanome.de), mostly written in Java. It's just not linked in the paper
+at all. For that, I had to go to the author pages, and hunt around. It's not the
+first time I've had to do that, either.
+
+So, if you're reading a paper, and wondering where the non-pseudo code is, go
+and look at the author pages. They often have supplementary material available
+there, not just book errata.
+
+***
+
+I've got plenty more I'd like to do with `autodb`. There are faster functional
+dependency search algorithms now, and the schema manipulation tools could do
+with some work. The documentation needs work, too: that single massive vignette
+is probably rather daunting. But, for now, I'm happy that I got this far.
