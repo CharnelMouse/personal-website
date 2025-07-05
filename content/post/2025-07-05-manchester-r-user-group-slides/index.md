@@ -28,7 +28,7 @@ I gave a short talk on the autodb package to [the Manchester R user group](https
 The slides are now available [here](../../slides/2025-07-03-mancr/2025-07-03-mancr.html), or from [the autodb project page](../../project/autodb).
 
 The talk seemed to go down well, and I got a few questions and conversations afterwards.
-The Manchester R user group is in a good place, with a reliably good turnout: it's been managed by [Datacove](https://datacove.co.uk/) for the last three years, and is in good hands.
+The Manchester R user group is in a good place, with a reliably good turnout: it's been managed by [Datacove](https://datacove.co.uk/) and [Better Placed](https://www.betterplaced.com) for the last three years, and is in good hands.
 If you're near Manchester and interested in the language, do give it a look.
 
 The other talk was given by [Russ Hyde from Jumping Rivers](https://www.jumpingrivers.com/authors/russ-hyde/),
