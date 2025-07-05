@@ -16,6 +16,10 @@ image:
 [Github link](https://github.com/CharnelMouse/autodb)\
 [Documentation site](https://charnelmouse.github.io/autodb/)
 
+Recent talks:
+
+- [autodb: splitting up tables automatically](../../slides/2025-07-03-mancr/2025-07-03-mancr.html). 3rd July 2025, [Manchester R user group](https://www.meetup.com/manchester-r/). [Publication post](../../post/2025-07-05-manchester-r-user-group-slides)
+
 *autodb* is an R package I wrote to help with a common problem I have at work:
 
 - Third-party data for one-off statistical analysis;

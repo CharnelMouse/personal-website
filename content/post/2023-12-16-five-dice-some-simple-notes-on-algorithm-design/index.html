@@ -20,12 +20,11 @@ projects: []
 math: true
 ---
 
-<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
 
 
 <p>NOTE: before publishing, I need to compare this to decision tables. This basically replacing decision tables with decision arrays, with the usual differences in terms of guaranteeing total case coverage.</p>
 <p>A few years ago, a programming channel I follow put out a video about practising programming by implementing scoring for dice combinations in Yahtzee:</p>
-<p>{{% youtube id="DDV_2cWT94U" %}}</p>
+{{% youtube id="DDV_2cWT94U" %}}
 <p>Watching this again recently reminded me of something I wanted to show in a more mathematical format. In particular, in 7:22–12:07 Javid discusses the code for drawing pips on a die according to the face value. He starts with showing code with separate instructions for each face, then talks about what happens if we “flip this idea on its head”, and use separate instructions for the pips. This ends up producing drawing code that’s much more concise.</p>
 <p>In other words, you’ve got two values you’re conditioning on: the die face, and the pip. You use both of these to determine whether to draw the particular pip for that die. We could look at this in terms of informational value, but that’s a little involved. Instead, since this is a function of the form
 <span class="math display">\[\textrm{Face} \times \textrm{Pip} \rightarrow \textrm{Draw?},\]</span>

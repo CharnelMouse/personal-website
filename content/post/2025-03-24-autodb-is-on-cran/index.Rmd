@@ -18,7 +18,8 @@ image:
   caption: ''
   focal_point: ''
   preview_only: no
-projects: []
+projects:
+  - autodb
 math: true
 ---
 

@@ -22,7 +22,6 @@ projects:
 - autodb
 ---
 
-<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
 
 
 <p>R has always been a language designed for both interactive and batch programming, but that’s not the only case of it allowing two approaches. It’s also allowed tackling problems with both multi-dimensional arrays (vectors, matrices etc.), and tables (data frames).</p>
@@ -55,15 +54,14 @@ df</code></pre>
 ## 4     4 [4, 6.5]</code></pre>
 <p>It has lots of methods for the generic functions we’d often use for the vector primitives:</p>
 <pre class="r"><code>methods(class = &quot;Surv&quot;)</code></pre>
-<pre><code>##  [1] [             anyDuplicated as.character  as.data.frame as.integer   
-##  [6] as.logical    as.matrix     as.numeric    barplot       c            
-## [11] density       duplicated    format        head          hist         
-## [16] identify      image         is.na         length        levels       
-## [21] lines         Math          median        names         names&lt;-      
-## [26] Ops           pairs         plot          points        print        
-## [31] quantile      rep.int       rep           rep_len       rev          
-## [36] Summary       survfit       t             tail          text         
-## [41] unique        xtfrm        
+<pre><code>##  [1] [             anyDuplicated as.character  as.data.frame as.logical   
+##  [6] as.matrix     barplot       c             density       duplicated   
+## [11] format        head          hist          identify      image        
+## [16] is.na         length        levels        lines         Math         
+## [21] median        names         names&lt;-       Ops           pairs        
+## [26] plot          points        print         quantile      rep.int      
+## [31] rep           rep_len       rev           Summary       survfit      
+## [36] t             tail          text          unique        xtfrm        
 ## see &#39;?methods&#39; for accessing help and source code</code></pre>
 <p>Allowing censored values, intervals etc. means it can’t actually just be a simple vector, though, right? Let’s look at how it’s stored:</p>
 <pre class="r"><code>unclass(times)</code></pre>
