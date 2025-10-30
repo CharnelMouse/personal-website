@@ -14,7 +14,7 @@ subtitle: ''
 summary: ''
 authors: []
 featured: no
-lastmod: '2025-10-29T00:06:00Z'
+lastmod: '2025-10-29T00:36:00Z'
 image:
   caption: ''
   focal_point: ''
@@ -54,7 +54,7 @@ x <- merge(
   as.data.frame(Titanic),
   by = character()
 )
-show(autodb(x, exclude_class = "numeric"))
+show(autodb(x, exclude = "Freq"))
 ```
 
 However, this doesn't always work. Suppose we take the following FDs:
