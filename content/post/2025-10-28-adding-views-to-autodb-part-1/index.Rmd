@@ -1,0 +1,286 @@
+---
+title: 'Adding "views" to autodb, part one: motivation'
+author: ''
+date: '2025-10-30'
+slug: []
+tags:
+- Programming
+- R
+- Relational model
+- autodb
+- Property-based testing
+- Adding "views" to autodb
+subtitle: ''
+summary: ''
+authors: []
+featured: no
+lastmod: '2025-10-29T00:06:00Z'
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects:
+  - autodb
+math: true
+---
+
+`autodb` is still chugging along. Most of the additions I've made recently have been stuff that's nice to have around the edges. Add a code generator for diagrams in D2. Improve the documentation a bit. Speed the existing algorithms up a bit. But there's been no large addition since I added the FDHits search algorithm earlier in the year, which sped up the search by several orders of magnitude.
+
+However, I've got a few larger additions I've been trying to work out the logic for for months, and I think it's about time to try to implement one of them.
+
+Currently, `autodb` decomposes tables into databases using Bernstein synthesis. A nice property of Bernstein synthesis is that, if we also add implied foreign key references, e.g. with `autoref`, the resulting reference graph is an acyclic directed graph: no relations refer to themselves, either directly or indirectly. (This is not the same as the concept of an acyclic schema.)
+
+We also get an acyclic reference graph when using decomposition rather than synthesis, and it's what we'd expect if we decomposed from a single original table. This is why the resulting diagrams are unidirectional.
+
+Now, this property might lead you to think that the resulting schemas have another desirable property: that we can recreate the original table by joining the given schemas up along the foreign key references, like a telescope. In other words, the graph has a single ultimate child relation, that refers to all of the others, directly or indirectly.
+
+For simple data, this is the case. For example, the schema for `ChickWeight` can all be joined back into the left-hand measurement relation:
+
+```{r}
+library(autodb)
+library(DiagrammeR)
+show <- function(x) grViz(gv(x))
+```
+
+```{r}
+show(autodb(ChickWeight))
+```
+
+It even works if the original table has two independent components, since the resulting left-hand relation, which we create to ensure losslessness, keeps everything connected:
+
+```{r}
+x <- merge(
+  ChickWeight,
+  as.data.frame(Titanic),
+  by = character()
+)
+show(autodb(x, exclude_class = "numeric"))
+```
+
+However, this doesn't always work. Suppose we take the following FDs:
+
+```{r}
+split_fds <- functional_dependency(
+  list(
+    list("a", "b"),
+    list("a", "c"),
+    list("b", "d"),
+    list("c", "e"),
+    list(c("d", "e"), "f")
+  ),
+  letters[1:6]
+)
+split_fds
+```
+
+If we decompose these FDs, we get the following schema:
+
+```{r}
+show(normalise(split_fds))
+```
+
+Rejoining this schema along the references results in two separate tables. In fact, the schema isn't even connected. This is because, once `c` and `d` are moved into separate relations, they can no longer be used together to refer to the key in relation `d_e`.
+
+If we create a schema by decomposing a table, instead of by synthesis, we do so by repeatedly splitting one relation in two, adding a foreign key reference between the two halves, since one retains a key of the other.
+
+If we decompose the data above, we can imagine that, at some point, we split off the relation `d_e`, with the other relation referring to it by key. Then, later, that other relation gets split, separating `d` and `e`. At that point, the reference to `d_e` is destroyed.
+
+This means that we have two separate components that contain `d` and `e`, and we can add data to them separately to break coherence, so we can't rejoin them back into a single coherent table with the same FDs.
+
+BCNF is the first normal form not always achievable with just (real) relations, but, from the above, we see that even 3NF may not be achievable while keeping the data re-composable.
+
+What can we do to fix this? Well, suppose that we could keep around some of the earlier stages in the decomposition:
+
+```{r, echo=FALSE}
+grViz("digraph {
+  rankdir = \"LR\"
+  node [shape=plaintext];
+
+  \"a\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">a</TD></TR>
+    <TR><TD PORT=\"TO_a\">a</TD><TD PORT=\"FROM_a\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD><TD PORT=\"FROM_b\"></TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD><TD PORT=\"FROM_c\"></TD></TR>
+    </TABLE>>];
+  \"b\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">b</TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_d\">d</TD><TD PORT=\"FROM_d\"></TD></TR>
+    </TABLE>>];
+  \"c\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">c</TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_e\">e</TD><TD PORT=\"FROM_e\"></TD></TR>
+    </TABLE>>];
+  \"d_e\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">d_e</TD></TR>
+    <TR><TD PORT=\"TO_d\">d</TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_e\">e</TD><TD PORT=\"FROM_e\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_f\">f</TD><TD PORT=\"FROM_f\"></TD></TR>
+    </TABLE>>];
+  \"view\" [label = <
+    <TABLE BGCOLOR=\"lightgrey\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"1\">view</TD></TR>
+    <TR><TD>a</TD></TR>
+    <TR><TD>b</TD></TR>
+    <TR><TD>c</TD></TR>
+    <TR><TD>d</TD></TR>
+    <TR><TD>e</TD></TR>
+    <TR><TD>f</TD></TR>
+    </TABLE>>];
+
+  \"a\":FROM_b -> \"b\":TO_b;
+  \"a\":FROM_c -> \"c\":TO_c;
+
+  \"view\":TITLE -> \"a\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+  \"view\":TITLE -> \"d_e\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+}")
+```
+
+The new relation with the grey background is what the data looked like before we split anything.
+It doesn't hold any data itself, since that would be redundant: instead, it's defined as the pre-decomposition of the two tables it refers to, after they have be joined to all of their reference ancestors. This isn't quite the same idea as a view -- we'd then be defining it as a join, which isn't quite right -- but it's a similar idea of having a virtual relation, that contains no data itself, and is defined in terms of others. It also doesn't denote its keys, because those are implied by what it's a pre-decomposition of.
+
+The schema doesn't have a unique decomposition sequence that would create it. We could also suppose a sequence where we make the split here:
+
+```{r, echo=FALSE}
+grViz("digraph {
+  rankdir = \"LR\"
+  node [shape=plaintext];
+
+  \"a\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">a</TD></TR>
+    <TR><TD PORT=\"TO_a\">a</TD><TD PORT=\"FROM_a\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD><TD PORT=\"FROM_b\"></TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD><TD PORT=\"FROM_c\"></TD></TR>
+    </TABLE>>];
+  \"b\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">b</TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_d\">d</TD><TD PORT=\"FROM_d\"></TD></TR>
+    </TABLE>>];
+  \"c\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">c</TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_e\">e</TD><TD PORT=\"FROM_e\"></TD></TR>
+    </TABLE>>];
+  \"d_e\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">d_e</TD></TR>
+    <TR><TD PORT=\"TO_d\">d</TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_e\">e</TD><TD PORT=\"FROM_e\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_f\">f</TD><TD PORT=\"FROM_f\"></TD></TR>
+    </TABLE>>];
+
+  \"view\" [label = <
+    <TABLE BGCOLOR=\"lightgrey\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"1\">view</TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD></TR>
+    <TR><TD>d</TD></TR>
+    <TR><TD>e</TD></TR>
+    <TR><TD>f</TD></TR>
+    </TABLE>>];
+  \"view2\" [label = <
+    <TABLE BGCOLOR=\"lightgrey\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"1\">view</TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD></TR>
+    <TR><TD>d</TD></TR>
+    <TR><TD>e</TD></TR>
+    </TABLE>>];
+
+  \"a\":FROM_b -> \"view\":TO_b;
+  \"a\":FROM_c -> \"view\":TO_c;
+
+  \"view\":TITLE -> \"d_e\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+  \"view2\":TITLE -> \"b\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+  \"view2\":TITLE -> \"c\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+
+  \"view\":TITLE -> \"view2\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+}")
+```
+
+This is a little odd, because we now have a real relation referring to a virtual relation ("view"). I was going to say that this is shorthand for saying that it refers to all the real relations that result from decomposing that view, but it can't refer to `d_e` here.
+
+We could show all of the decomposition steps, but it's overkill here: the original table is already implied by the foreign key references.
+
+```{r, echo=FALSE}
+grViz("digraph {
+  rankdir = \"LR\"
+  node [shape=plaintext];
+
+  \"a\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">a</TD></TR>
+    <TR><TD PORT=\"TO_a\">a</TD><TD PORT=\"FROM_a\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD><TD PORT=\"FROM_b\"></TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD><TD PORT=\"FROM_c\"></TD></TR>
+    </TABLE>>];
+  \"b\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">b</TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_d\">d</TD><TD PORT=\"FROM_d\"></TD></TR>
+    </TABLE>>];
+  \"c\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">c</TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_e\">e</TD><TD PORT=\"FROM_e\"></TD></TR>
+    </TABLE>>];
+  \"d_e\" [label = <
+    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">d_e</TD></TR>
+    <TR><TD PORT=\"TO_d\">d</TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_e\">e</TD><TD PORT=\"FROM_e\" BGCOLOR=\"black\"></TD></TR>
+    <TR><TD PORT=\"TO_f\">f</TD><TD PORT=\"FROM_f\"></TD></TR>
+    </TABLE>>];
+
+  \"view\" [label = <
+    <TABLE BGCOLOR=\"lightgrey\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"1\">view</TD></TR>
+    <TR><TD>a</TD></TR>
+    <TR><TD>b</TD></TR>
+    <TR><TD>c</TD></TR>
+    <TR><TD>d</TD></TR>
+    <TR><TD>e</TD></TR>
+    <TR><TD>f</TD></TR>
+    </TABLE>>];
+  \"view2\" [label = <
+    <TABLE BGCOLOR=\"lightgrey\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"1\">view</TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD></TR>
+    <TR><TD>d</TD></TR>
+    <TR><TD>e</TD></TR>
+    <TR><TD>f</TD></TR>
+    </TABLE>>];
+  \"view3\" [label = <
+    <TABLE BGCOLOR=\"lightgrey\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">
+    <TR><TD PORT=\"TITLE\" COLSPAN=\"1\">view</TD></TR>
+    <TR><TD PORT=\"TO_b\">b</TD></TR>
+    <TR><TD PORT=\"TO_c\">c</TD></TR>
+    <TR><TD>d</TD></TR>
+    <TR><TD>e</TD></TR>
+    </TABLE>>];
+
+  \"view\":TITLE -> \"a\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+  \"view2\":TITLE -> \"d_e\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+  \"view3\":TITLE -> \"b\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+  \"view3\":TITLE -> \"c\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+
+  \"view\":TITLE -> \"view2\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+  \"view2\":TITLE -> \"view3\":TITLE [arrowhead=\"empty\" style=\"dashed\"];
+}")
+```
+
+For simplicity, I'm going to begin by assuming that the views can always be introduced by becoming the new ultimate child relation, that decomposes into all the separate components simultaneously. I suspect this will turn out to be too simple, but we'll see.
+
+I'll begin working out how to implement this next time, and try to drive it with property-based testing.

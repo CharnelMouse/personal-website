@@ -19,6 +19,7 @@ image:
 Recent talks:
 
 - [autodb: splitting up tables automatically](../../slides/2025-07-03-mancr/2025-07-03-mancr.html). 3rd July 2025, [Manchester R user group](https://www.meetup.com/manchester-r/). [Publication post](../../post/2025-07-05-manchester-r-user-group-slides)
+- [Semi-automatic database normalisation in R](../../slides/2025-10-06-earl/Mark_Webster_-_Semi-automatic_database_normalisation_in_R.pdf). 6th October 2025, [EARL conference 2025](https://earl-conference.com/).
 
 *autodb* is an R package I wrote to help with a common problem I have at work:
 

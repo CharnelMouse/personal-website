@@ -1,0 +1,269 @@
+---
+title: Bernstein synthesis doesn't normalise up to third normal form or EKNF
+author: ''
+date: '2025-10-28'
+slug: []
+categories: []
+tags:
+- Programming
+- R
+- Relational model
+- autodb
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2025-10-28T22:37:25Z'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+draft: yes
+math: true
+---
+
+<script src="{{< blogdown/postref >}}index_files/htmlwidgets/htmlwidgets.js"></script>
+<script src="{{< blogdown/postref >}}index_files/viz/viz.js"></script>
+<link href="{{< blogdown/postref >}}index_files/DiagrammeR-styles/styles.css" rel="stylesheet" />
+<script src="{{< blogdown/postref >}}index_files/grViz-binding/grViz.js"></script>
+
+
+<p>Bernstein synthesis has been the most common method for decomposing relational data since the Seventies, but for an algorithm so well-established there seems to be little understanding about what it gives you.</p>
+<p>In short, Bernstein synthesis takes a set of functional dependencies (FDs) that hold for a given set of attributes, and returns a normalised schema of relations for that set.</p>
+<p>Many descriptions of Bernstein synthesis say that it gives a schema in third normal form. This is technically true, but what we get is stronger than that.</p>
+<p>I’ll assume you know what functional dependencies are: <span class="math inline">\(X \rightarrow Y\)</span> means that the attributes in <span class="math inline">\(X\)</span> determine those in <span class="math inline">\(Y\)</span>. For simplicity, I’ll be talking about non-trivial, right-irreducible FDs, where <span class="math inline">\(Y\)</span> contains exactly one attribute <span class="math inline">\(y\)</span>. If <span class="math inline">\(Y\)</span> is larger, we can split it up into FDs with one dependant attribute each, and if it’s empty, it’s trivial, because it states nothing. I’ll therefore be writing <span class="math inline">\(X \rightarrow y\)</span> instead, where <span class="math inline">\(y\)</span> is not in <span class="math inline">\(X\)</span>.</p>
+<div id="third-normal-form-and-second-and-bcnf" class="section level1">
+<h1>Third normal form (and second and BCNF)</h1>
+<p>Now, here’s a definition of third normal form, based on a version given by Chris Date:</p>
+<blockquote>
+<p>A relation <span class="math inline">\(r\)</span> is in <em>third normal form (3NF)</em> if and only if, for every non-trivial FD <span class="math inline">\(X \rightarrow Y\)</span> that is satisfied by <span class="math inline">\(r\)</span>, at least one of the following conditions holds:</p>
+<ol style="list-style-type: decimal">
+<li>The determinant <span class="math inline">\(X\)</span> is a superkey of <span class="math inline">\(r\)</span> (i.e. contains a key);</li>
+<li>The dependant <span class="math inline">\(y\)</span> is a subkey of <span class="math inline">\(r\)</span> (i.e. is a member of a key).</li>
+</ol>
+</blockquote>
+<p>I like this definition, because it shows the progression from 2NF to BCNF in a natural way. 2NF adds an additional condition option that <span class="math inline">\(X\)</span> is a subkey, i.e. the FD uses a partial key. BCNF removes the second condition, so <span class="math inline">\(X\)</span> must be a superkey. BCNF is the form we actually want, because it’s the highest form expressed in functional dependencies. The lower forms, from 2NF onwards, are arguably just historical mistakes on the road to discovering BCNF, that were thought to protect against more errors than they really did.</p>
+<p>Now, the above definition just talks about a relation. What about a database? Well, I’m going to follow Date and Darwen’s idea that a database can be defined as a tuplevar: i.e. a variable that contains a tuple, which can change value over time. This is a tuple that contains relations. I’m not going to talk about tuplevars, because change over time doesn’t affect what I want to talk about. This is also why I’m talking about relations instead of relvars. I’m going to talk about databases, but what I’m really referring to is a database value: a tuple of relations, rather than a tuplevar of relations.</p>
+<p>With that said, here’s the definition of third normal form for databases:</p>
+<blockquote>
+<p>A database <span class="math inline">\(d\)</span> is in 3NF if and only if all of its relations are in 3NF.</p>
+</blockquote>
+<p>Now, Bernstein synthesis does produce a schema that’s in 3NF, but it does more than that. For example, say we have the following FDs:</p>
+<pre class="r"><code>library(autodb)
+fds &lt;- functional_dependency(
+  list(
+    list(c(&quot;SNO&quot;, &quot;PNO&quot;), &quot;SNAME&quot;),
+    list(c(&quot;SNAME&quot;, &quot;PNO&quot;), &quot;SNO&quot;),
+    list(&quot;SNO&quot;, &quot;SNAME&quot;),
+    list(&quot;SNAME&quot;, &quot;SNO&quot;)
+  ),
+  c(&quot;SNO&quot;, &quot;SNAME&quot;, &quot;PNO&quot;)
+)
+fds</code></pre>
+<pre><code>## 4 functional dependencies
+## 3 attributes: SNO, SNAME, PNO
+##   SNO, PNO -&gt; SNAME
+## SNAME, PNO -&gt; SNO
+##        SNO -&gt; SNAME
+##      SNAME -&gt; SNO</code></pre>
+<p>The single relation holding all four attributes is already in third normal form:</p>
+<pre class="r"><code>library(DiagrammeR)
+show &lt;- function(x) grViz(gv(x), width = &quot;100%&quot;)
+show(normalise(fds[1:2]))</code></pre>
+<div id="htmlwidget-1" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-1">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"SNO_PNO\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">SNO_PNO<\/TD><\/TR>\n    <TR><TD PORT=\"TO_sno\">SNO<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_sno\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_pno\">PNO<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_pno\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_sname\">SNAME<\/TD><TD><\/TD><TD PORT=\"FROM_sname\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>The former two FDs have a superkey determinant <span class="math inline">\(X\)</span>, and the latter two have a subkey dependant <span class="math inline">\(y\)</span>.</p>
+<p>However, if you do Bernstein synthesis with all of the given FDs, you don’t get a single relation:</p>
+<pre class="r"><code>show(normalise(fds))</code></pre>
+<div id="htmlwidget-2" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-2">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"SNO\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">SNO<\/TD><\/TR>\n    <TR><TD PORT=\"TO_sno\">SNO<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_sno\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_sname\">SNAME<\/TD><TD><\/TD><TD PORT=\"FROM_sname\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"SNO_PNO\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">SNO_PNO<\/TD><\/TR>\n    <TR><TD PORT=\"TO_sno\">SNO<\/TD><TD PORT=\"FROM_sno\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_pno\">PNO<\/TD><TD PORT=\"FROM_pno\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"SNO_PNO\":FROM_sno -> \"SNO\":TO_sno;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>(Bernstein synthesis just gives the relations, not the implied foreign key references between them, but I’m keeping those in to make the diagrams more readable.)</p>
+<p>This schema is also in 3NF:</p>
+<ul>
+<li>the left-hand relation has no non-trivial FDs, so is trivially in 3NF;</li>
+<li>the right-hand relation has two non-trivial FDs, which both satisfy both conditions.</li>
+</ul>
+<p>However, there is clearly more decomposition being done than is necessary for 3NF, so Bernstein synthesis gives something stronger.</p>
+</div>
+<div id="elementary-key-normal-form" class="section level1">
+<h1>Elementary key normal form</h1>
+<p>I said that many descriptions of Bernstein synthesis say that it gives a schema in third normal form. A <em>good</em> description will say that it gives a schema in elementary key normal form (EKNF).</p>
+<p>Here’s the definition of EKNF for relations:</p>
+<blockquote>
+<p>A relation <span class="math inline">\(r\)</span> is in <em>elementary key normal form (EKNF)</em> if and only if, for every non-trivial FD <span class="math inline">\(X \rightarrow Y\)</span> that is satisfied by <span class="math inline">\(r\)</span>, at least one of the following conditions holds:</p>
+<ol style="list-style-type: decimal">
+<li><span class="math inline">\(X\)</span> is a superkey of <span class="math inline">\(r\)</span>;</li>
+<li><span class="math inline">\(y\)</span> is a subkey <strong>of an elementary key</strong> of <span class="math inline">\(r\)</span>,</li>
+</ol>
+<p>where an <em>elementary key</em> <span class="math inline">\(K\)</span> of relation <span class="math inline">\(r\)</span> is a key of <span class="math inline">\(r\)</span> such that there is an attribute <span class="math inline">\(a\)</span> of <span class="math inline">\(r\)</span> such that <span class="math inline">\(K \rightarrow a\)</span> is satisfied by <span class="math inline">\(r\)</span>, and is non-trivial and left-irreducible (i.e. removing any attribute from <span class="math inline">\(K\)</span> makes the FD not satisfied by <span class="math inline">\(r\)</span>).</p>
+<p>A database is in EKNF if and only if all of its relations are in EKNF.</p>
+</blockquote>
+<p>I’ve put in bold the part that differs from the definition for 3NF.</p>
+<p>EKNF is stricter than 3NF, but not as strict as BCNF: EKNF strengthens the second condition option, and BCNF removes it.</p>
+<p>The single relation with all four attributes is in 3NF. Is it in EKNF? No, because its keys aren’t elementary. For example, the key <span class="math inline">\(\{\textrm{SNO}, \textrm{PNO}\}\)</span> is the determinant in one non-trivial FD, <span class="math inline">\(\{\textrm{SNO}, \textrm{PNO}\} \rightarrow \textrm{SNAME}\)</span>, but this FD is left-reducible to <span class="math inline">\(\{\textrm{SNO}\} \rightarrow \textrm{SNAME}\)</span>.</p>
+<p>Here’s the two-relation decomposition again:</p>
+<pre class="r"><code>show(normalise(fds))</code></pre>
+<div id="htmlwidget-3" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-3">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"SNO\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">SNO<\/TD><\/TR>\n    <TR><TD PORT=\"TO_sno\">SNO<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_sno\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_sname\">SNAME<\/TD><TD><\/TD><TD PORT=\"FROM_sname\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"SNO_PNO\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">SNO_PNO<\/TD><\/TR>\n    <TR><TD PORT=\"TO_sno\">SNO<\/TD><TD PORT=\"FROM_sno\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_pno\">PNO<\/TD><TD PORT=\"FROM_pno\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"SNO_PNO\":FROM_sno -> \"SNO\":TO_sno;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>Is the two-relation decomposition in EKNF? Yes, because both of the relations are in EKNF:</p>
+<ul>
+<li>The left-hand relation has no non-trivial FDs, so it’s trivially in EKNF.</li>
+<li>The right-hand relation has two non-trivial FDs, which contain the keys and are irreducible.</li>
+</ul>
+<p>So, Bernstein synthesis does, indeed, seem to decompose to EKNF. Is this as far as it decomposes? To confirm this, let’s take another example set of FDs:</p>
+<pre class="r"><code>bcnf_fds &lt;- functional_dependency(
+  list(
+    list(c(&quot;a&quot;, &quot;b&quot;), &quot;c&quot;),
+    list(&quot;c&quot;, &quot;a&quot;)
+  ),
+  letters[1:3]
+)
+bcnf_fds</code></pre>
+<pre><code>## 2 functional dependencies
+## 3 attributes: a, b, c
+## a, b -&gt; c
+##    c -&gt; a</code></pre>
+<p>This is the classic set of FDs that can’t be expressed as a BCNF schema using just (real) relations.</p>
+<p>Again, if we construct the simple flat table, then it is already in 3NF:</p>
+<pre class="r"><code>show(normalise(bcnf_fds[1]))</code></pre>
+<div id="htmlwidget-4" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-4">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"a_b\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">a_b<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD PORT=\"FROM_a\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\"><\/TD><\/TR>\n    <\/TABLE>>];\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>The first FD has a superkey determinant <span class="math inline">\(\{a, b\}\)</span>, and the second has a subkey dependant <span class="math inline">\(c\)</span>.</p>
+<p>It’s also in EKNF, since the given key is elementary: the first FD is left-irreducible. So, if Bernstein synthesis decomposes up to EKNF, applying it should give a schema containing one relation:</p>
+<pre class="r"><code>show(normalise(bcnf_fds))</code></pre>
+<div id="htmlwidget-5" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-5">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"c\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">c<\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"a_b\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">a_b<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD PORT=\"FROM_a\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"a_b\":FROM_c -> \"c\":TO_c;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>Oh.</p>
+</div>
+<div id="the-algorithm" class="section level1">
+<h1>The algorithm</h1>
+<p>In retrospect, this might not be too surprising if we look at how Bernstein synthesis works. Briefly, after removing redundancy in the FDs, and partitioning them by equivalent determinants, each partition group gets a relation containing all of its used attributes, and the group’s equivalent determinants become the relation keys. This means that every original FD’s determinant either becomes a superkey of some relation in the resulting schema, or is bijective to one.</p>
+<p>We therefore get a slightly stronger database normal form, which is not expressed purely in terms of its relations. I don’t know of a name for it, so I’ll just give it one.</p>
+</div>
+<div id="bernstein-form" class="section level1">
+<h1>Bernstein form?</h1>
+<p>THIS SECTION ISN’T QUITE RIGHT. SEE THE LTK SECTION FOR WHY <span class="math inline">\(X\)</span> MIGHT NOT APPEAR AS A SUPERKEY.</p>
+<blockquote>
+<p>A database <span class="math inline">\(d\)</span> is in <em>Bernstein form</em> if and only if it satisfies the following conditions:</p>
+<ol style="list-style-type: decimal">
+<li>All of its relations are in EKNF (i.e. it is in EKNF itself);</li>
+<li>For every non-trivial FD <span class="math inline">\(X \rightarrow y\)</span> that is satisfied by some relvar in <span class="math inline">\(d\)</span>, there is a relation <span class="math inline">\(r\)</span> in <span class="math inline">\(d\)</span> that satisfies <span class="math inline">\(X \rightarrow y\)</span>, such that <span class="math inline">\(X\)</span> is a superkey of <span class="math inline">\(r\)</span>.</li>
+</ol>
+</blockquote>
+<p>Alternatively, we can write this purely in terms of the FDs:</p>
+<blockquote>
+<p>For every non-trivial FD <span class="math inline">\(X \rightarrow y\)</span>, and relvar <span class="math inline">\(r\)</span> in <span class="math inline">\(d\)</span>, the following are true:</p>
+<ol style="list-style-type: decimal">
+<li>For every relvar <span class="math inline">\(r\)</span> that satisfies <span class="math inline">\(X \rightarrow y\)</span>, one of the following conditions is true:</li>
+</ol>
+<ol style="list-style-type: lower-alpha">
+<li><span class="math inline">\(X\)</span> is a superkey;</li>
+<li><span class="math inline">\(y\)</span> is a member of an elementary key;</li>
+</ol>
+<ol start="2" style="list-style-type: decimal">
+<li>There is a relation <span class="math inline">\(r\)</span> in <span class="math inline">\(d\)</span> that satisfies <span class="math inline">\(X \rightarrow y\)</span>, such that <span class="math inline">\(X\)</span> is a superkey of <span class="math inline">\(d\)</span>.</li>
+</ol>
+</blockquote>
+<p>Note that the second condition is similar to that for BCNF. The way I like to think about this is that each FD is “EKNF-satisfied” by every relation that contains its attributes, and is “BCNF-satisfied” by at least one of them.</p>
+<p>This form explains why we have the right-hand relation in the above schema. Here are the FDs and the schema again:</p>
+<pre class="r"><code>bcnf_fds &lt;- functional_dependency(
+  list(
+    list(c(&quot;a&quot;, &quot;b&quot;), &quot;c&quot;),
+    list(&quot;c&quot;, &quot;a&quot;)
+  ),
+  letters[1:3]
+)
+bcnf_fds</code></pre>
+<pre><code>## 2 functional dependencies
+## 3 attributes: a, b, c
+## a, b -&gt; c
+##    c -&gt; a</code></pre>
+<pre class="r"><code>show(normalise(bcnf_fds))</code></pre>
+<div id="htmlwidget-6" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-6">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"c\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">c<\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"a_b\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">a_b<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD PORT=\"FROM_a\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"a_b\":FROM_c -> \"c\":TO_c;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>The right-hand relation appears so that <span class="math inline">\(\{c\} \rightarrow a\)</span> is BCNF-satisfied somewhere. It is also EKNF-satisfied in the left-hand relation, which is why this schema isn’t in BCNF.</p>
+<p>In summary, Bernstein synthesis normalises to a higher normal than is usually given, because that normal form isn’t a canonical one that can be expressed purely at the relation level. I’m not sure whether it’s a normal form that’s even been defined. In any case, if you’ve applied Bernstein synthesis, and wondered why it produces a schema with more relations than seem necessary for 3NF or EKNF, this is why.</p>
+</div>
+<div id="appendix-database-level-normal-forms" class="section level1">
+<h1>Appendix: database-level normal forms</h1>
+<p>It might look a little odd to have a normal form for databases that isn’t purely expressed at the relation level, i.e. a database is in a form if all its relations are individually. A few do already exist, but they’re not part of the standard “ladder” of normal forms.</p>
+<p>In fact, <code>autodb</code> already lets you use one such form, called LTK form, named after its creators. It’s described in the original paper as an “improved third normal form”.</p>
+<p>Attaining LTK form can be done with a simple extension of Bernstein synthesis, adding the following step after creating the relations: for each relation <span class="math inline">\(r\)</span>, remove an attribute <span class="math inline">\(a\)</span> if it satisfies the following conditions:</p>
+<ol style="list-style-type: decimal">
+<li>Restorable. Relation <span class="math inline">\(r\)</span> does not have a key consisting of all its attributes, and every key <span class="math inline">\(K\)</span> that doesn’t contain <span class="math inline">\(a\)</span> is such that <span class="math inline">\(K \rightarrow a\)</span> can be inferred from the keys of all the relations in <span class="math inline">\(d\)</span> if <span class="math inline">\(a\)</span> is removed from <span class="math inline">\(r\)</span>.</li>
+<li>Nonessential. For every key <span class="math inline">\(K\)</span> that contains <span class="math inline">\(a\)</span>, <span class="math inline">\(K \setminus \{a\}\)</span> determines a key <span class="math inline">\(K&#39;\)</span> for <span class="math inline">\(r \setminus \{a\}\)</span>, using the same inferred FDs as above.</li>
+</ol>
+<p>This can be used in <code>autodb</code> by using <code>remove_avoidable = TRUE</code> when calling <code>autodb()</code>, <code>normalise()</code>, or <code>synthesise()</code>. This produces something more like an improved EKNF, rather than an improved 3NF. I don’t think it’s an improved Bernstein form, because removing avoidable attributes involves removing keys.</p>
+<p>For example, take this set of FDs:</p>
+<pre class="r"><code>ltk_fds &lt;- functional_dependency(
+  list(
+    list(&quot;A&quot;, &quot;B&quot;),
+    list(&quot;B&quot;, &quot;A&quot;),
+    list(c(&quot;A&quot;, &quot;C&quot;), &quot;D&quot;),
+    list(c(&quot;A&quot;, &quot;C&quot;), &quot;E&quot;),
+    list(c(&quot;B&quot;, &quot;D&quot;), &quot;C&quot;),
+    list(c(&quot;B&quot;, &quot;D&quot;), &quot;E&quot;)
+  ),
+  attrs_order = c(&quot;A&quot;, &quot;B&quot;, &quot;C&quot;, &quot;D&quot;, &quot;E&quot;)
+)
+ltk_fds</code></pre>
+<pre><code>## 6 functional dependencies
+## 5 attributes: A, B, C, D, E
+##    A -&gt; B
+##    B -&gt; A
+## A, C -&gt; D
+## A, C -&gt; E
+## B, D -&gt; C
+## B, D -&gt; E</code></pre>
+<p>Here’s the resulting schema in Bernstein form:</p>
+<pre class="r"><code>show(normalise(ltk_fds))</code></pre>
+<div id="htmlwidget-7" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-7">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"A\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">A<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">A<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">B<\/TD><TD><\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"A_C\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">A_C<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">A<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">C<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_c\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">B<\/TD><TD><\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_d\">D<\/TD><TD><\/TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_e\">E<\/TD><TD><\/TD><TD PORT=\"FROM_e\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"A_C\":FROM_a -> \"A\":TO_a;\n  \"A_C\":FROM_b -> \"A\":TO_b;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>And here’s the schema if we remove avoidable attributes:</p>
+<pre class="r"><code>show(normalise(ltk_fds, remove_avoidable = TRUE))</code></pre>
+<div id="htmlwidget-8" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-8">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"A\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">A<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">A<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">B<\/TD><TD><\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"A_C\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">A_C<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">A<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_a\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">C<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_c\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_d\">D<\/TD><TD><\/TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_e\">E<\/TD><TD><\/TD><TD PORT=\"FROM_e\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"A_C\":FROM_a -> \"A\":TO_a;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>Note that, in this case, we’d get this schema anyway if we listed all of the non-trivial irreducible FDs, instead of just the ones given above:</p>
+<pre class="r"><code>full_ltk_fds &lt;- functional_dependency(
+  list(
+    list(&quot;A&quot;, &quot;B&quot;),
+    list(&quot;B&quot;, &quot;A&quot;),
+    list(c(&quot;A&quot;, &quot;C&quot;), &quot;D&quot;),
+    list(c(&quot;A&quot;, &quot;C&quot;), &quot;E&quot;),
+    list(c(&quot;A&quot;, &quot;D&quot;), &quot;C&quot;),
+    list(c(&quot;A&quot;, &quot;D&quot;), &quot;E&quot;),
+    list(c(&quot;B&quot;, &quot;C&quot;), &quot;D&quot;),
+    list(c(&quot;B&quot;, &quot;C&quot;), &quot;E&quot;),
+    list(c(&quot;B&quot;, &quot;D&quot;), &quot;C&quot;),
+    list(c(&quot;B&quot;, &quot;D&quot;), &quot;E&quot;)
+  ),
+  attrs_order = c(&quot;A&quot;, &quot;B&quot;, &quot;C&quot;, &quot;D&quot;, &quot;E&quot;)
+)
+full_ltk_fds</code></pre>
+<pre><code>## 10 functional dependencies
+## 5 attributes: A, B, C, D, E
+##    A -&gt; B
+##    B -&gt; A
+## A, C -&gt; D
+## A, C -&gt; E
+## A, D -&gt; C
+## A, D -&gt; E
+## B, C -&gt; D
+## B, C -&gt; E
+## B, D -&gt; C
+## B, D -&gt; E</code></pre>
+<pre class="r"><code>show(normalise(full_ltk_fds))</code></pre>
+<div id="htmlwidget-9" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-9">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"A\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">A<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">A<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">B<\/TD><TD><\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"A_C\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">A_C<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">A<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_a\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">C<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_c\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_d\">D<\/TD><TD><\/TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_e\">E<\/TD><TD><\/TD><TD PORT=\"FROM_e\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"A_C\":FROM_a -> \"A\":TO_a;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>Incidentally, this is also an example of Bernstein synthesis not having every original determinant appear as a superkey: every compound determinant that includes <span class="math inline">\(B\)</span> is removed as redundant, by transitivity, before the relations are constructed.</p>
+<pre class="r"><code>autodb:::remove_extraneous(full_ltk_fds)</code></pre>
+<pre><code>## 5 functional dependencies
+## 5 attributes: A, B, C, D, E
+##    A -&gt; B
+##    B -&gt; A
+## A, C -&gt; D
+## A, C -&gt; E
+## A, D -&gt; C</code></pre>
+<p>LTK form clearly can’t be defined one relation at a time: determining whether an attribute is avoidable makes use of the FDs implied by the keys of the other relations. This form was introduced in 1981, so normal forms that have database-level conditions are hardly new.</p>
+</div>

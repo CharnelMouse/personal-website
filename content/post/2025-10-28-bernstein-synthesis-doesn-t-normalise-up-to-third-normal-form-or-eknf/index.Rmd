@@ -1,0 +1,265 @@
+---
+title: Bernstein synthesis doesn't normalise up to third normal form or EKNF
+author: ''
+date: '2025-10-28'
+slug: []
+categories: []
+tags:
+- Programming
+- R
+- Relational model
+- autodb
+subtitle: ''
+summary: ''
+authors: []
+lastmod: '2025-10-28T22:37:25Z'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+draft: yes
+math: true
+---
+
+Bernstein synthesis has been the most common method for decomposing relational data since the Seventies, but for an algorithm so well-established there seems to be little understanding about what it gives you.
+
+In short, Bernstein synthesis takes a set of functional dependencies (FDs) that hold for a given set of attributes, and returns a normalised schema of relations for that set.
+
+Many descriptions of Bernstein synthesis say that it gives a schema in third normal form. This is technically true, but what we get is stronger than that.
+
+I'll assume you know what functional dependencies are: $X \rightarrow Y$ means that the attributes in $X$ determine those in $Y$. For simplicity, I'll be talking about non-trivial, right-irreducible FDs, where $Y$ contains exactly one attribute $y$. If $Y$ is larger, we can split it up into FDs with one dependant attribute each, and if it's empty, it's trivial, because it states nothing. I'll therefore be writing $X \rightarrow y$ instead, where $y$ is not in $X$.
+
+# Third normal form (and second and BCNF)
+
+Now, here's a definition of third normal form, based on a version given by Chris Date:
+
+> A relation $r$ is in *third normal form (3NF)* if and only if, for every non-trivial FD $X \rightarrow Y$ that is satisfied by $r$, at least one of the following conditions holds:
+> 
+> 1. The determinant $X$ is a superkey of $r$ (i.e. contains a key);
+> 2. The dependant $y$ is a subkey of $r$ (i.e. is a member of a key).
+
+I like this definition, because it shows the progression from 2NF to BCNF in a natural way. 2NF adds an additional condition option that $X$ is a subkey, i.e. the FD uses a partial key. BCNF removes the second condition, so $X$ must be a superkey. BCNF is the form we actually want, because it's the highest form expressed in functional dependencies. The lower forms, from 2NF onwards, are arguably just historical mistakes on the road to discovering BCNF, that were thought to protect against more errors than they really did.
+
+Now, the above definition just talks about a relation. What about a database? Well, I'm going to follow Date and Darwen's idea that a database can be defined as a tuplevar: i.e. a variable that contains a tuple, which can change value over time. This is a tuple that contains relations. I'm not going to talk about tuplevars, because change over time doesn't affect what I want to talk about. This is also why I'm talking about relations instead of relvars. I'm going to talk about databases, but what I'm really referring to is a database value: a tuple of relations, rather than a tuplevar of relations.
+
+With that said, here's the definition of third normal form for databases:
+
+> A database $d$ is in 3NF if and only if all of its relations are in 3NF.
+
+Now, Bernstein synthesis does produce a schema that's in 3NF, but it does more than that. For example, say we have the following FDs:
+
+```{r, message=FALSE}
+library(autodb)
+fds <- functional_dependency(
+  list(
+    list(c("SNO", "PNO"), "SNAME"),
+    list(c("SNAME", "PNO"), "SNO"),
+    list("SNO", "SNAME"),
+    list("SNAME", "SNO")
+  ),
+  c("SNO", "SNAME", "PNO")
+)
+fds
+```
+
+The single relation holding all four attributes is already in third normal form:
+
+```{r}
+library(DiagrammeR)
+show <- function(x) grViz(gv(x), width = "100%")
+show(normalise(fds[1:2]))
+```
+
+The former two FDs have a superkey determinant $X$, and the latter two have a subkey dependant $y$.
+
+However, if you do Bernstein synthesis with all of the given FDs, you don't get a single relation:
+
+```{r eknf}
+show(normalise(fds))
+```
+
+(Bernstein synthesis just gives the relations, not the implied foreign key references between them, but I'm keeping those in to make the diagrams more readable.)
+
+This schema is also in 3NF:
+
+- the left-hand relation has no non-trivial FDs, so is trivially in 3NF;
+- the right-hand relation has two non-trivial FDs, which both satisfy both conditions.
+
+However, there is clearly more decomposition being done than is necessary for 3NF, so Bernstein synthesis gives something stronger.
+
+# Elementary key normal form
+
+I said that many descriptions of Bernstein synthesis say that it gives a schema in third normal form. A *good* description will say that it gives a schema in elementary key normal form (EKNF).
+
+Here's the definition of EKNF for relations:
+
+> A relation $r$ is in *elementary key normal form (EKNF)* if and only if, for every non-trivial FD $X \rightarrow Y$ that is satisfied by $r$, at least one of the following conditions holds:
+> 
+> 1. $X$ is a superkey of $r$;
+> 2. $y$ is a subkey **of an elementary key** of $r$,
+> 
+> where an *elementary key* $K$ of relation $r$ is a key of $r$ such that there is an attribute $a$ of $r$ such that $K \rightarrow a$ is satisfied by $r$, and is non-trivial and left-irreducible (i.e. removing any attribute from $K$ makes the FD not satisfied by $r$).
+> 
+> A database is in EKNF if and only if all of its relations are in EKNF.
+
+I've put in bold the part that differs from the definition for 3NF.
+
+EKNF is stricter than 3NF, but not as strict as BCNF: EKNF strengthens the second condition option, and BCNF removes it.
+
+The single relation with all four attributes is in 3NF. Is it in EKNF? No, because its keys aren't elementary. For example, the key $\{\textrm{SNO}, \textrm{PNO}\}$ is the determinant in one non-trivial FD, $\{\textrm{SNO}, \textrm{PNO}\} \rightarrow \textrm{SNAME}$, but this FD is left-reducible to $\{\textrm{SNO}\} \rightarrow \textrm{SNAME}$.
+
+Here's the two-relation decomposition again:
+
+```{r eknf}
+```
+
+Is the two-relation decomposition in EKNF? Yes, because both of the relations are in EKNF:
+
+- The left-hand relation has no non-trivial FDs, so it's trivially in EKNF.
+- The right-hand relation has two non-trivial FDs, which contain the keys and are irreducible.
+
+So, Bernstein synthesis does, indeed, seem to decompose to EKNF. Is this as far as it decomposes? To confirm this, let's take another example set of FDs:
+
+```{r bcnf_fds}
+bcnf_fds <- functional_dependency(
+  list(
+    list(c("a", "b"), "c"),
+    list("c", "a")
+  ),
+  letters[1:3]
+)
+bcnf_fds
+```
+
+This is the classic set of FDs that can't be expressed as a BCNF schema using just (real) relations.
+
+Again, if we construct the simple flat table, then it is already in 3NF:
+
+```{r}
+show(normalise(bcnf_fds[1]))
+```
+
+The first FD has a superkey determinant $\{a, b\}$, and the second has a subkey dependant $c$.
+
+It's also in EKNF, since the given key is elementary: the first FD is left-irreducible. So, if Bernstein synthesis decomposes up to EKNF, applying it should give a schema containing one relation:
+
+```{r bcnf_schema}
+show(normalise(bcnf_fds))
+```
+
+Oh.
+
+# The algorithm
+
+In retrospect, this might not be too surprising if we look at how Bernstein synthesis works. Briefly, after removing redundancy in the FDs, and partitioning them by equivalent determinants, each partition group gets a relation containing all of its used attributes, and the group's equivalent determinants become the relation keys. This means that every original FD's determinant either becomes a superkey of some relation in the resulting schema, or is bijective to one.
+
+We therefore get a slightly stronger database normal form, which is not expressed purely in terms of its relations. I don't know of a name for it, so I'll just give it one.
+
+# Bernstein form?
+
+THIS SECTION ISN'T QUITE RIGHT. SEE THE LTK SECTION FOR WHY $X$ MIGHT NOT APPEAR AS A SUPERKEY.
+
+> A database $d$ is in *Bernstein form* if and only if it satisfies the following conditions:
+> 
+> 1. All of its relations are in EKNF (i.e. it is in EKNF itself);
+> 2. For every non-trivial FD $X \rightarrow y$ that is satisfied by some relvar in $d$, there is a relation $r$ in $d$ that satisfies $X \rightarrow y$, such that $X$ is a superkey of $r$.
+
+Alternatively, we can write this purely in terms of the FDs:
+
+> For every non-trivial FD $X \rightarrow y$, and relvar $r$ in $d$, the following are true:
+> 
+> 1. For every relvar $r$ that satisfies $X \rightarrow y$, one of the following conditions is true:
+>   a) $X$ is a superkey;
+>   b) $y$ is a member of an elementary key;
+> 2. There is a relation $r$ in $d$ that satisfies $X \rightarrow y$, such that $X$ is a superkey of $d$.
+
+Note that the second condition is similar to that for BCNF. The way I like to think about this is that each FD is "EKNF-satisfied" by every relation that contains its attributes, and is "BCNF-satisfied" by at least one of them.
+
+This form explains why we have the right-hand relation in the above schema. Here are the FDs and the schema again:
+
+```{r bcnf_fds}
+```
+
+```{r bcnf_schema}
+```
+
+The right-hand relation appears so that $\{c\} \rightarrow a$ is BCNF-satisfied somewhere. It is also EKNF-satisfied in the left-hand relation, which is why this schema isn't in BCNF.
+
+In summary, Bernstein synthesis normalises to a higher normal than is usually given, because that normal form isn't a canonical one that can be expressed purely at the relation level. I'm not sure whether it's a normal form that's even been defined. In any case, if you've applied Bernstein synthesis, and wondered why it produces a schema with more relations than seem necessary for 3NF or EKNF, this is why.
+
+# Appendix: database-level normal forms
+
+It might look a little odd to have a normal form for databases that isn't purely expressed at the relation level, i.e. a database is in a form if all its relations are individually. A few do already exist, but they're not part of the standard "ladder" of normal forms.
+
+In fact, `autodb` already lets you use one such form, called LTK form, named after its creators. It's described in the original paper as an "improved third normal form".
+
+Attaining LTK form can be done with a simple extension of Bernstein synthesis, adding the following step after creating the relations: for each relation $r$, remove an attribute $a$ if it satisfies the following conditions:
+
+1. Restorable. Relation $r$ does not have a key consisting of all its attributes, and every key $K$ that doesn't contain $a$ is such that $K \rightarrow a$ can be inferred from the keys of all the relations in $d$ if $a$ is removed from $r$.
+2. Nonessential. For every key $K$ that contains $a$, $K \setminus \{a\}$ determines a key $K'$ for $r \setminus \{a\}$, using the same inferred FDs as above.
+
+This can be used in `autodb` by using `remove_avoidable = TRUE` when calling `autodb()`, `normalise()`, or `synthesise()`. This produces something more like an improved EKNF, rather than an improved 3NF. I don't think it's an improved Bernstein form, because removing avoidable attributes involves removing keys.
+
+For example, take this set of FDs:
+
+```{r}
+ltk_fds <- functional_dependency(
+  list(
+    list("A", "B"),
+    list("B", "A"),
+    list(c("A", "C"), "D"),
+    list(c("A", "C"), "E"),
+    list(c("B", "D"), "C"),
+    list(c("B", "D"), "E")
+  ),
+  attrs_order = c("A", "B", "C", "D", "E")
+)
+ltk_fds
+```
+
+Here's the resulting schema in Bernstein form:
+
+```{r}
+show(normalise(ltk_fds))
+```
+
+And here's the schema if we remove avoidable attributes:
+
+```{r}
+show(normalise(ltk_fds, remove_avoidable = TRUE))
+```
+
+Note that, in this case, we'd get this schema anyway if we listed all of the non-trivial irreducible FDs, instead of just the ones given above:
+
+```{r}
+full_ltk_fds <- functional_dependency(
+  list(
+    list("A", "B"),
+    list("B", "A"),
+    list(c("A", "C"), "D"),
+    list(c("A", "C"), "E"),
+    list(c("A", "D"), "C"),
+    list(c("A", "D"), "E"),
+    list(c("B", "C"), "D"),
+    list(c("B", "C"), "E"),
+    list(c("B", "D"), "C"),
+    list(c("B", "D"), "E")
+  ),
+  attrs_order = c("A", "B", "C", "D", "E")
+)
+full_ltk_fds
+```
+
+```{r}
+show(normalise(full_ltk_fds))
+```
+
+Incidentally, this is also an example of Bernstein synthesis not having every original determinant appear as a superkey: every compound determinant that includes $B$ is removed as redundant, by transitivity, before the relations are constructed.
+
+```{r}
+autodb:::remove_extraneous(full_ltk_fds)
+```
+
+LTK form clearly can't be defined one relation at a time: determining whether an attribute is avoidable makes use of the FDs implied by the keys of the other relations. This form was introduced in 1981, so normal forms that have database-level conditions are hardly new.
