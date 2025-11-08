@@ -1,0 +1,654 @@
+---
+title: 'Adding "views" to autodb, part two: initial tests'
+author: ''
+date: '2025-11-08'
+slug: []
+categories: []
+tags:
+- Programming
+- R
+- Relational model
+- autodb
+- Property-based testing
+- Adding "views" to autodb
+subtitle: ''
+summary: ''
+authors: []
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects:
+  - autodb
+math: true
+---
+
+<script src="{{< blogdown/postref >}}index_files/htmlwidgets/htmlwidgets.js"></script>
+<script src="{{< blogdown/postref >}}index_files/viz/viz.js"></script>
+<link href="{{< blogdown/postref >}}index_files/DiagrammeR-styles/styles.css" rel="stylesheet" />
+<script src="{{< blogdown/postref >}}index_files/grViz-binding/grViz.js"></script>
+<link href="{{< blogdown/postref >}}index_files/htmltools-fill/fill.css" rel="stylesheet" />
+
+
+<p><a href="../2025-10-28-adding-views-to-autodb-part-1">Last time</a>, I showed how I think that adding “views” – i.e. previous decomposition steps, or “pre-decompositions” – to a database schema might ensure that it stays connected. Now we need to work out how to implement it.</p>
+<pre class="r"><code>library(autodb)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;autodb&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:stats&#39;:
+## 
+##     decompose</code></pre>
+<pre class="r"><code>show &lt;- function(x) DiagrammeR::grViz(gv(x), width = &quot;100%&quot;)</code></pre>
+<div id="test-property" class="section level1">
+<h1>Test property</h1>
+<p>The problem we want to solve is that the database schema given by <code>autodb</code> sometimes isn’t connected, so the first thing we need is a function that checks whether a schema is connected.</p>
+<p>To do this, we construct a directed adjacency matrix for the foreign key references, and use that matrix to determine any relation can reach all the others by following references. Since references are described as a child referring to a parent, we can think of this as looking for a common descendant for all of the relations.</p>
+<p>If we consider each relation as being adjacent to itself, we can achieve this by taking higher powers of the adjacency matrix until there’s no further change. The result shows the ancestors for each relation, including itself, and we check whether any of them have all of the relations as ancestors.</p>
+<pre class="r"><code>adjacency &lt;- function(x) {
+  stopifnot(inherits(x, c(&quot;database_schema&quot;, &quot;database&quot;)))
+
+  nms &lt;- names(x)
+  len &lt;- length(x)
+  refs &lt;- references(x)
+  adj &lt;- matrix(
+    FALSE,
+    nrow = len,
+    ncol = len,
+    dimnames = list(nms, nms)
+  )
+  from &lt;- vapply(refs, \(r) match(r[[1]], nms), integer(1))
+  to &lt;- vapply(refs, \(r) match(r[[3]], nms), integer(1))
+  for (n in seq_along(refs))
+    adj[[from[[n]], to[[n]]]] &lt;- TRUE
+  diag(adj) &lt;- TRUE
+  adj
+}
+
+fixed_point &lt;- function(init, step, endif) {
+  old &lt;- init
+  current &lt;- step(init)
+  while (!endif(old, current)) {
+    old &lt;- current
+    current &lt;- step(current)
+  }
+  current
+}
+
+is_connected &lt;- function(x) {
+  connections &lt;- adjacency(x)
+  filled &lt;- fixed_point(connections, \(x) x %*% connections &gt; 0, identical)
+  any(apply(filled, 1, all))
+}</code></pre>
+<p>This is not a particularly efficient implementation – we’re re-calculating everything instead of just accounting for new connections on each iteration – but it works. <code>adjacency</code> calculates the initial adjacency matrix. <code>fixed_point</code> just encapsulates the loop for repeated application, so we don’t have its temporary variables hanging around afterwards.</p>
+<p>Let’s check this against two simple examples:</p>
+<pre class="r"><code>connected_example &lt;- autodb(ChickWeight)
+show(connected_example)</code></pre>
+<div id="htmlwidget-1" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-1">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"Chick\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">Chick (50 records)<\/TD><\/TR>\n    <TR><TD PORT=\"TO_chick\">Chick<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_chick\">ordered<\/TD><\/TR>\n    <TR><TD PORT=\"TO_diet\">Diet<\/TD><TD><\/TD><TD PORT=\"FROM_diet\">factor<\/TD><\/TR>\n    <\/TABLE>>];\n  \"Time_Chick\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"3\">Time_Chick (578 records)<\/TD><\/TR>\n    <TR><TD PORT=\"TO_time\">Time<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_time\">numeric<\/TD><\/TR>\n    <TR><TD PORT=\"TO_chick\">Chick<\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_chick\">ordered<\/TD><\/TR>\n    <TR><TD PORT=\"TO_weight\">weight<\/TD><TD><\/TD><TD PORT=\"FROM_weight\">numeric<\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"Time_Chick\":FROM_chick -> \"Chick\":TO_chick;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>Remember, arrows with black heads represent foreign key references, and columns with black cells indicate relation keys.</p>
+<pre class="r"><code>nonconnected_example &lt;- normalise(functional_dependency(
+  list(
+    list(&quot;a&quot;, &quot;b&quot;),
+    list(&quot;a&quot;, &quot;c&quot;),
+    list(&quot;b&quot;, &quot;d&quot;),
+    list(&quot;c&quot;, &quot;e&quot;),
+    list(c(&quot;d&quot;, &quot;e&quot;), &quot;f&quot;)
+  ),
+  letters[1:6]
+))
+show(nonconnected_example)</code></pre>
+<div id="htmlwidget-2" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-2">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"a\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">a<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD PORT=\"FROM_a\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"b\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">b<\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_d\">d<\/TD><TD PORT=\"FROM_d\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"c\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">c<\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_e\">e<\/TD><TD PORT=\"FROM_e\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"d_e\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">d_e<\/TD><\/TR>\n    <TR><TD PORT=\"TO_d\">d<\/TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_e\">e<\/TD><TD PORT=\"FROM_e\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_f\">f<\/TD><TD PORT=\"FROM_f\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"a\":FROM_b -> \"b\":TO_b;\n  \"a\":FROM_c -> \"c\":TO_c;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<pre class="r"><code>is_connected(connected_example)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>is_connected(nonconnected_example)</code></pre>
+<pre><code>## [1] FALSE</code></pre>
+<p>Good. I could add some more thorough testing, but this is a simple enough function that I don’t want to spend much time on it. Instead, let’s look at the problem we want to solve.</p>
+</div>
+<div id="test-case-generation" class="section level1">
+<h1>Test case generation</h1>
+<p>I want this to be test-driven. Specifically, I want to use property tests, so that we can think about general mathematical properties of the algorithm instead of risking getting lost in a forest of individual test cases.</p>
+<p>This means writing a test case generator first. I have a more involved generator in <code>autodb</code>’s test suite, but we’ll write a simple version here that just uses integers. I use the <code>hedgehog</code> package for property-based testing, which lets you build up test case generators by composing existing ones. <code>testthat</code> adds higher-level generators on top of it, but I want the lower-level flexibility.</p>
+<pre class="r"><code>library(hedgehog)</code></pre>
+<pre><code>## Loading required package: testthat</code></pre>
+<p>First, we generate the number of rows and columns, given upper limits.</p>
+<ul>
+<li><code>gen.int(n)</code> generates a number between 1 and <code>n</code>.</li>
+<li><code>gen.with(g, f)</code> takes a generator <code>g</code> of some value <code>x</code>, and returns the generator of <code>f(x)</code>. Here, we pass it a list of two generators, which gets treated as a single generator for length-two lists.</li>
+</ul>
+<pre class="r"><code>gen.dims &lt;- function(rows, cols) {
+  list(gen.int(rows), gen.int(cols)) |&gt;
+    gen.with(unlist)
+}</code></pre>
+<p>We then write a generator for creating the values for a single column. We’ll keep things simple, and suppose we only use integer values. We don’t want to allow arbitrary vectors of integers, because this allows a high degree of redundancy. When columns get passed into <code>discover</code>, all that matters is when values are equal: for example, these tuples are all equivalent under changing of unique values:
+<span class="math display">\[(1, 6, 4, 1, 1, 6), \, (1, 2, 3, 1, 1, 2), \, (3, 1, 2, 3, 3, 1).\]</span></p>
+<p>We avoid this redundancy by requiring the unique values to start from 1, and increment in order of appearance. We implement this requirement by generating the values from a Chinese restaurant process (with concentration 1). We first generate a vector of indices, where an index value is between 1 and its own position. If it’s equal to its own position, the result number at that index is a new unique value. If it’s less than its own position, then the result number is equal to the number at the given index.</p>
+<pre class="r"><code>to_crp &lt;- function(x) {
+  n &lt;- length(x)
+  res &lt;- rep(NA_integer_, n)
+  count &lt;- 0L
+  for (index in seq_len(n)) {
+    res[[index]] &lt;- res[[x[[index]]]]
+    if (is.na(res[[index]])) {
+      count &lt;- count + 1L
+      res[[index]] &lt;- count
+    }
+  }
+  res
+}
+
+gen.crp &lt;- function(n) {
+  lapply(seq_len(n), gen.int) |&gt;
+    gen.with(unlist) |&gt;
+    gen.with(to_crp)
+}</code></pre>
+<p>We then take each column’s generated values, and combine them together into a data frame.</p>
+<pre class="r"><code>gen.data.frame_from_dims &lt;- function(dims) {
+  gen.list(gen.crp(dims[[1]]), of = dims[[2]]) |&gt;
+    gen.with(as.data.frame) |&gt;
+    gen.with(\(x) setNames(x, letters[seq_len(dims[[2]])]))
+}</code></pre>
+<p>Finally, we compose the dimension and data frame generation together, remove duplicate rows from the result, and sort the rows, permuting values afterwards to keep unique value appearances in order. The duplicate rows get dropped by <code>discover</code> anyway, but if we get a failing test case we don’t want to see them, since they’re irrelevant.</p>
+<pre class="r"><code>sort_and_revalue &lt;- function(x) {
+  x &lt;- x[do.call(order, x), , drop = FALSE]
+  x[] &lt;- lapply(x, \(y) match(y, unique(y)))
+  row.names(x) &lt;- NULL
+  x
+}
+
+gen.data.frame &lt;- function(rows = 10, cols = 10) {
+  gen.dims(rows, cols) |&gt;
+    gen.and_then(gen.data.frame_from_dims) |&gt;
+    gen.with(unique) |&gt;
+    gen.with(sort_and_revalue)
+}</code></pre>
+<p>Let’s see an example of a data frame generation. I’m setting the seed first: generator results are random, and I want the text to match the displayed results.</p>
+<pre class="r"><code>set.seed(2025-11-08)
+gen.data.frame(5, 3)</code></pre>
+<pre><code>## Hedgehog generator:
+## Example:
+##   a
+## 1 1
+## 2 2
+## Initial shrinks:
+##   a
+## 1 1
+##   a
+## 1 1
+## 2 2
+##   a
+## 1 1
+##   a
+## 1 1
+## 2 2</code></pre>
+<p>The “shrinks” are simplifications of the original generated example. The idea is that, if a test case fails, the test first attempts to find a simple test case that still fails, so the user sees an attempt at a minimal failing example.</p>
+<p>Shrinking is partly where I want to avoid redundancy in the column value generator: if we don’t then we can get situations where a column value is “shrunk” to something that’s equivalent with respect to decomposition.</p>
+</div>
+<div id="test-property-and-iteration" class="section level1">
+<h1>Test property and iteration</h1>
+<p>With our main test case generator ready, we can think about properties to test. For now, we just kick things off by testing that data frames get normalised into a connected schema, as a property of getting normalised. We know that this should fail: I showed some failing cases last time.</p>
+<pre class="r"><code>try(forall(
+  gen.data.frame(5, 8) |&gt;
+    gen.with(\(x) {
+      fds &lt;- discover(x)
+      list(data = x, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema)),
+  curry = TRUE
+))</code></pre>
+<pre><code>## Error : Falsifiable after 5 tests, and 6 shrinks
+## &lt;expectation_failure/expectation/error/condition&gt;
+## is_connected(schema) is not TRUE
+## 
+## `actual`:   FALSE
+## `expected`: TRUE 
+## Backtrace:
+##      ▆
+##   1. ├─base::try(...)
+##   2. │ └─base::tryCatch(...)
+##   3. │   └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+##   4. │     └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+##   5. │       └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+##   6. └─hedgehog::forall(...)
+##   7.   └─hedgehog:::run.prop(property, counterexample$smallest, curry)
+##   8.     ├─base::tryCatch(...)
+##   9.     │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+##  10.     │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+##  11.     │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+##  12.     ├─base::withCallingHandlers(...)
+##  13.     ├─base::do.call(property, arguments)
+##  14.     └─global `&lt;fn&gt;`(data = `&lt;df[,2]&gt;`, fds = `&lt;fnctnl_d&gt;`, schema = `&lt;dtbs_sch&gt;`)
+##  15.       └─testthat::expect_true(is_connected(schema))
+## Counterexample:
+## $data
+##   a b
+## 1 1 1
+## 2 2 1
+## 
+## $fds
+## 1 functional dependency
+## 2 attributes: a, b
+##  -&gt; b
+## 
+## $schema
+## database schema with 2 relation schemas
+## 2 attributes: a, b
+## schema constants: b
+##   key 1: 
+## schema a: a
+##   key 1: a
+## no references</code></pre>
+<p><code>testthat</code> returning the stack trace makes the error message far more verbose than it needs to be, but we can see that the test does fail. In fact, it fails on a very simple case, that we might not have thought of. If any of the variables are constant – i.e. always take the same value – then they are put into a relation with an empty key, and isolated from the rest of the schema as a special case. This trivially makes the schema non-connected.</p>
+<p>If we rejoin the schema to get a flat table, then we do need to join the constants at some point, but I don’t think that showing this explicitly would be very useful. Since constants are already treated as a special case, I think that it’s acceptable to ignore them with respect to connectivity, so we rewrite <code>is_connected</code> to allow ignoring relations with an empty key.</p>
+<pre class="r"><code>all_nonempty &lt;- function(x) {
+  all(lengths(x) &gt; 0)
+}
+
+is_connected &lt;- function(x, const = TRUE) {
+  stopifnot(inherits(x, c(&quot;database_schema&quot;, &quot;database&quot;)))
+
+  used &lt;- if (const)
+    rep(TRUE, length(x))
+  else
+    vapply(keys(x), all_nonempty, logical(1))
+
+  connections &lt;- adjacency(x[used])
+  filled &lt;- fixed_point(connections, \(x) x %*% connections &gt; 0, identical)
+  any(apply(filled, 1, all))
+}
+
+try(forall(
+  gen.data.frame(5, 8) |&gt;
+    gen.with(\(x) {
+      fds &lt;- discover(x)
+      list(data = x, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema, const = FALSE)),
+  curry = TRUE
+))</code></pre>
+<pre><code>## Error : Falsifiable after 1 tests, and 1 shrinks
+## &lt;expectation_failure/expectation/error/condition&gt;
+## is_connected(schema, const = FALSE) is not TRUE
+## 
+## `actual`:   FALSE
+## `expected`: TRUE 
+## Backtrace:
+##      ▆
+##   1. ├─base::try(...)
+##   2. │ └─base::tryCatch(...)
+##   3. │   └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+##   4. │     └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+##   5. │       └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+##   6. └─hedgehog::forall(...)
+##   7.   └─hedgehog:::run.prop(property, counterexample$smallest, curry)
+##   8.     ├─base::tryCatch(...)
+##   9.     │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+##  10.     │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+##  11.     │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+##  12.     ├─base::withCallingHandlers(...)
+##  13.     ├─base::do.call(property, arguments)
+##  14.     └─global `&lt;fn&gt;`(data = `&lt;df[,1]&gt;`, fds = `&lt;fnctnl_d&gt;`, schema = `&lt;dtbs_sch&gt;`)
+##  15.       └─testthat::expect_true(is_connected(schema, const = FALSE))
+## Counterexample:
+## $data
+##   a
+## 1 1
+## 
+## $fds
+## 1 functional dependency
+## 1 attribute: a
+##  -&gt; a
+## 
+## $schema
+## database schema with 1 relation schema
+## 1 attribute: a
+## schema constants: a
+##   key 1: 
+## no references</code></pre>
+<p>This new failing case is also simple: everything is constant, so there are no relations to check connectivity between. This should count as being connected, so I clearly didn’t write the connection function correctly. Let’s try again.</p>
+<pre class="r"><code>is_connected &lt;- function(x, const = TRUE) {
+  stopifnot(inherits(x, c(&quot;database_schema&quot;, &quot;database&quot;)))
+  
+  used &lt;- if (const)
+    rep(TRUE, length(x))
+  else
+    vapply(keys(x), all_nonempty, logical(1))
+  if (sum(used) == 0)
+    return(TRUE)
+
+  connections &lt;- adjacency(x[used])
+  filled &lt;- fixed_point(connections, \(x) x %*% connections &gt; 0, identical)
+  any(apply(filled, 1, all))
+}
+
+is_connected(autodb(data.frame(a = 1L)))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<p>That’s better. We can adjust the property test accordingly.</p>
+<pre class="r"><code>try(forall(
+  gen.data.frame(5, 8) |&gt;
+    gen.with(\(x) {
+      fds &lt;- discover(x)
+      list(data = x, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema, const = FALSE)),
+  curry = TRUE
+))</code></pre>
+<pre><code>## Error : Falsifiable after 3 tests, and 9 shrinks
+## &lt;expectation_failure/expectation/error/condition&gt;
+## is_connected(schema, const = FALSE) is not TRUE
+## 
+## `actual`:   FALSE
+## `expected`: TRUE 
+## Backtrace:
+##      ▆
+##   1. ├─base::try(...)
+##   2. │ └─base::tryCatch(...)
+##   3. │   └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+##   4. │     └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+##   5. │       └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+##   6. └─hedgehog::forall(...)
+##   7.   └─hedgehog:::run.prop(property, counterexample$smallest, curry)
+##   8.     ├─base::tryCatch(...)
+##   9.     │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+##  10.     │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+##  11.     │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+##  12.     ├─base::withCallingHandlers(...)
+##  13.     ├─base::do.call(property, arguments)
+##  14.     └─global `&lt;fn&gt;`(data = `&lt;df[,7]&gt;`, fds = `&lt;fnctnl_d&gt;`, schema = `&lt;dtbs_sch&gt;`)
+##  15.       └─testthat::expect_true(is_connected(schema, const = FALSE))
+## Counterexample:
+## $data
+##   a b c d e f g
+## 1 1 1 1 1 1 1 1
+## 2 1 1 1 1 2 1 2
+## 3 1 1 1 1 2 2 2
+## 4 1 1 1 2 1 3 2
+## 
+## $fds
+## 9 functional dependencies
+## 7 attributes: a, b, c, d, e, f, g
+##      -&gt; a
+##      -&gt; b
+##      -&gt; c
+##    f -&gt; d
+## e, g -&gt; d
+## f, g -&gt; e
+## d, g -&gt; e
+## e, f -&gt; g
+## d, e -&gt; g
+## 
+## $schema
+## database schema with 4 relation schemas
+## 7 attributes: a, b, c, d, e, f, g
+## schema constants: a, b, c
+##   key 1: 
+## schema f: f, d
+##   key 1: f
+## schema d_e: d, e, g
+##   key 1: d, e
+##   key 2: d, g
+##   key 3: e, g
+## schema e_f: e, f
+##   key 1: e, f
+## references:
+## e_f.{f} -&gt; f.{f}</code></pre>
+<p>The new failing case is larger, but most of it is unnecessary. The constant variables don’t matter, but the default shrinking for our current generator doesn’t get rid of them. I don’t want to be mucking around with writing custom shrinks, so, to keep things simple, we can remove constants as a final step in generation.</p>
+<pre class="r"><code>crp_nonconst &lt;- function(x) {
+  x &lt;- x[vapply(x, \(y) any(y != 1), logical(1))]
+  names(x) &lt;- letters[seq_len(ncol(x))]
+  x 
+}
+
+try(forall(
+  gen.data.frame(5, 8) |&gt;
+    gen.with(\(x) {
+      x_nonconst &lt;- crp_nonconst(x)
+      fds &lt;- discover(x_nonconst)
+      list(data = x_nonconst, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema, const = FALSE)),
+  curry = TRUE
+))</code></pre>
+<pre><code>## Error : Falsifiable after 48 tests, and 14 shrinks
+## &lt;expectation_failure/expectation/error/condition&gt;
+## is_connected(schema, const = FALSE) is not TRUE
+## 
+## `actual`:   FALSE
+## `expected`: TRUE 
+## Backtrace:
+##      ▆
+##   1. ├─base::try(...)
+##   2. │ └─base::tryCatch(...)
+##   3. │   └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+##   4. │     └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+##   5. │       └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+##   6. └─hedgehog::forall(...)
+##   7.   └─hedgehog:::run.prop(property, counterexample$smallest, curry)
+##   8.     ├─base::tryCatch(...)
+##   9.     │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+##  10.     │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+##  11.     │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+##  12.     ├─base::withCallingHandlers(...)
+##  13.     ├─base::do.call(property, arguments)
+##  14.     └─global `&lt;fn&gt;`(data = `&lt;df[,4]&gt;`, fds = `&lt;fnctnl_d&gt;`, schema = `&lt;dtbs_sch&gt;`)
+##  15.       └─testthat::expect_true(is_connected(schema, const = FALSE))
+## Counterexample:
+## $data
+##   a b c d
+## 1 1 1 1 1
+## 2 1 1 2 2
+## 3 1 2 2 2
+## 4 2 3 1 2
+## 
+## $fds
+## 6 functional dependencies
+## 4 attributes: a, b, c, d
+## c, d -&gt; a
+##    b -&gt; a
+## b, d -&gt; c
+## a, d -&gt; c
+## b, c -&gt; d
+## a, c -&gt; d
+## 
+## $schema
+## database schema with 3 relation schemas
+## 4 attributes: a, b, c, d
+## schema b: b, a
+##   key 1: b
+## schema a_c: a, c, d
+##   key 1: a, c
+##   key 2: a, d
+##   key 3: c, d
+## schema b_c: b, c
+##   key 1: b, c
+## references:
+## b_c.{b} -&gt; b.{b}</code></pre>
+<p>This is our first significant failing test case.</p>
+<div id="htmlwidget-3" style="width:100%;height:480px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-3">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"b\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">b<\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"a_c\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"4\">a_c<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD BGCOLOR=\"black\"><\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD BGCOLOR=\"black\"><\/TD><TD><\/TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_d\">d<\/TD><TD><\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"b_c\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD COLSPAN=\"2\">b_c<\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"b_c\":FROM_b -> \"b\":TO_b;\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>The only way to join the schema components together with a pre-decomposition is via a decomposition on the shared attributes <span class="math inline">\(\{a, c\}\)</span>, which are a key for <code>a_c</code>. We could visualise this as below, as I’d originally intended to be doing:</p>
+<div class="grViz html-widget html-fill-item" id="htmlwidget-4" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-4">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"b\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">b<\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"a_c\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD PORT=\"TITLE\" COLSPAN=\"4\">a_c<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD BGCOLOR=\"black\"><\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD BGCOLOR=\"black\"><\/TD><TD><\/TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_d\">d<\/TD><TD><\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"b_c\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">b_c<\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"view\" [label = <\n    <TABLE BGCOLOR=\"lightgrey\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD PORT=\"TITLE\" COLSPAN=\"1\">view<\/TD><\/TR>\n    <TR><TD PORT=\"ATTR_a\">a<\/TD><\/TR>\n    <TR><TD PORT=\"ATTR_b\">b<\/TD><\/TR>\n    <TR><TD PORT=\"ATTR_c\">c<\/TD><\/TR>\n    <TR><TD PORT=\"ATTR_d\">d<\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"b_c\":FROM_b -> \"b\":TO_b;\n  \"view\":TITLE -> \"b_c\":TITLE [arrowhead=\"empty\" style=\"dashed\"];\n  \"view\":TITLE -> \"a_c\":TITLE [arrowhead=\"empty\" style=\"dashed\"];\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>The dashed arrow with white head indicates that the pre-decomposition includes the target, plus all of its parents joined in, as one of the relations it’s decomposed into.</p>
+<p>However, I don’t think that this visualisation precisely reflects the intended meaning, which is that the pre-decomposition of relations <code>b_c</code> and <code>b</code> has a foreign key reference to relation <code>a_c</code>. This is not conveyed above, since we refer to <code>a_c</code> and <code>b_c</code> in the same manner. Let’s display them a little differently:</p>
+<div class="grViz html-widget html-fill-item" id="htmlwidget-5" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-5">{"x":{"diagram":"digraph {\n  rankdir = \"LR\"\n  node [shape=plaintext];\n\n  \"b\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">b<\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"a_c\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD PORT=\"TITLE\" COLSPAN=\"4\">a_c<\/TD><\/TR>\n    <TR><TD PORT=\"TO_a\">a<\/TD><TD BGCOLOR=\"black\"><\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_a\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD BGCOLOR=\"black\"><\/TD><TD><\/TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_d\">d<\/TD><TD><\/TD><TD BGCOLOR=\"black\"><\/TD><TD PORT=\"FROM_d\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n  \"b_c\" [label = <\n    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD PORT=\"TITLE\" COLSPAN=\"2\">b_c<\/TD><\/TR>\n    <TR><TD PORT=\"TO_b\">b<\/TD><TD PORT=\"FROM_b\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <TR><TD PORT=\"TO_c\">c<\/TD><TD PORT=\"FROM_c\" BGCOLOR=\"black\"><\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"view\" [label = <\n    <TABLE BGCOLOR=\"lightgrey\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n    <TR><TD PORT=\"TITLE\" COLSPAN=\"1\">view<\/TD><\/TR>\n    <TR><TD PORT=\"ATTR_a\">a<\/TD><\/TR>\n    <TR><TD PORT=\"ATTR_b\">b<\/TD><\/TR>\n    <TR><TD PORT=\"ATTR_c\">c<\/TD><\/TR>\n    <\/TABLE>>];\n\n  \"b_c\":FROM_b -> \"b\":TO_b;\n  \"view\":TITLE -> \"b_c\":TITLE [arrowhead=\"empty\" style=\"dashed\"];\n  \"view\":ATTR_a -> \"a_c\":TO_a [style=\"dashed\"];\n  \"view\":ATTR_c -> \"a_c\":TO_c [style=\"dashed\"];\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<p>We’ve made two changes to the pre-decomposition, to make it more informative:</p>
+<ul>
+<li>it is now a pre-decomposition only of <code>b_c</code> (and <code>b</code> as a parent), not <code>a_c</code>, so it doesn’t include attribute <code>d</code>;</li>
+<li>it has a foreign key reference to <code>a_c</code> instead of including it, conveying that <code>b_c</code> and <code>b</code> together refer to <code>a_c</code> before they’re split apart. The arrows are still dashed, to indicate a view is involved, but the black heads indicate a foreign key reference, as usual.</li>
+</ul>
+<p>I’m happier with this approach. We now have an idea of what information we need to store for the view:</p>
+<ul>
+<li>names of the relations it’s a pre-decomposition of</li>
+<li>attributes within the pre-decomposition (implied by the above, but stating them explicitly allows for visualisation of the below)</li>
+<li>foreign key references to those relations (those with no reference are used directly)</li>
+</ul>
+<p>Next time, we’ll start writing a simple implementation.</p>
+</div>
+<div id="code" class="section level1">
+<h1>Code</h1>
+<p>Here’s all the relevant code so far, ignoring the random seed:</p>
+<pre class="r"><code>library(autodb)
+library(hedgehog)
+
+fixed_point &lt;- function(init, step, endif) {
+  old &lt;- init
+  current &lt;- step(init)
+  while (!endif(old, current)) {
+    old &lt;- current
+    current &lt;- step(current)
+  }
+  current
+}
+
+adjacency &lt;- function(x) {
+  stopifnot(inherits(x, c(&quot;database_schema&quot;, &quot;database&quot;)))
+
+  nms &lt;- names(x)
+  len &lt;- length(x)
+  refs &lt;- references(x)
+  adj &lt;- matrix(
+    FALSE,
+    nrow = len,
+    ncol = len,
+    dimnames = list(nms, nms)
+  )
+  from &lt;- vapply(refs, \(r) match(r[[1]], nms), integer(1))
+  to &lt;- vapply(refs, \(r) match(r[[3]], nms), integer(1))
+  for (n in seq_along(refs))
+    adj[[from[[n]], to[[n]]]] &lt;- TRUE
+  diag(adj) &lt;- TRUE
+  adj
+}
+
+all_nonempty &lt;- function(x) {
+  all(lengths(x) &gt; 0)
+}
+
+is_connected &lt;- function(x, const = TRUE) {
+  stopifnot(inherits(x, c(&quot;database_schema&quot;, &quot;database&quot;)))
+  
+  used &lt;- if (const)
+    rep(TRUE, length(x))
+  else
+    vapply(keys(x), all_nonempty, logical(1))
+  if (sum(used) == 0)
+    return(TRUE)
+
+  connections &lt;- adjacency(x[used])
+  filled &lt;- fixed_point(connections, \(x) x %*% connections &gt; 0, identical)
+  any(apply(filled, 1, all))
+}
+
+gen.dims &lt;- function(rows, cols) {
+  list(gen.int(rows), gen.int(cols)) |&gt;
+    gen.with(unlist)
+}
+
+to_crp &lt;- function(x) {
+  n &lt;- length(x)
+  res &lt;- rep(NA_integer_, n)
+  count &lt;- 0L
+  for (index in seq_len(n)) {
+    res[[index]] &lt;- res[[x[[index]]]]
+    if (is.na(res[[index]])) {
+      count &lt;- count + 1L
+      res[[index]] &lt;- count
+    }
+  }
+  res
+}
+
+gen.crp &lt;- function(n) {
+  lapply(seq_len(n), gen.int) |&gt;
+    gen.with(unlist) |&gt;
+    gen.with(to_crp)
+}
+
+gen.data.frame_from_dims &lt;- function(dims) {
+  gen.list(gen.crp(dims[[1]]), of = dims[[2]]) |&gt;
+    gen.with(\(x) {
+      as.data.frame(x) |&gt;
+        setNames(letters[seq_len(dims[[2]])])
+    })
+}
+
+sort_and_revalue &lt;- function(x) {
+  x &lt;- x[do.call(order, x), , drop = FALSE]
+  x[] &lt;- lapply(x, \(y) match(y, unique(y)))
+  row.names(x) &lt;- NULL
+  x
+}
+
+gen.data.frame &lt;- function(rows = 10, cols = 10) {
+  gen.dims(rows, cols) |&gt;
+    gen.and_then(gen.data.frame_from_dims) |&gt;
+    gen.with(unique) |&gt;
+    gen.with(sort_and_revalue)
+}
+
+crp_nonconst &lt;- function(x) {
+  x &lt;- x[vapply(x, \(y) any(y != 1), logical(1))]
+  names(x) &lt;- letters[seq_len(ncol(x))]
+  x  
+}
+
+try(forall(
+  gen.data.frame(5, 8) |&gt;
+    gen.with(\(x) {
+      fds &lt;- discover(x)
+      list(data = x, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema)),
+  curry = TRUE
+))
+
+try(forall(
+  gen.data.frame(5, 8) |&gt;
+    gen.with(\(x) {
+      x_nonconst &lt;- crp_nonconst(x)
+      fds &lt;- discover(x_nonconst)
+      list(data = x_nonconst, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema, const = FALSE)),
+  curry = TRUE
+))</code></pre>
+</div>
+<div id="session-information" class="section level1">
+<h1>Session information</h1>
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 4.4.3 (2025-02-28 ucrt)
+## Platform: x86_64-w64-mingw32/x64
+## Running under: Windows 11 x64 (build 26100)
+## 
+## Matrix products: default
+## 
+## 
+## locale:
+## [1] LC_COLLATE=English_United Kingdom.utf8 
+## [2] LC_CTYPE=English_United Kingdom.utf8   
+## [3] LC_MONETARY=English_United Kingdom.utf8
+## [4] LC_NUMERIC=C                           
+## [5] LC_TIME=English_United Kingdom.utf8    
+## 
+## time zone: Europe/London
+## tzcode source: internal
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] hedgehog_0.1   testthat_3.2.3 autodb_3.2.3  
+## 
+## loaded via a namespace (and not attached):
+##  [1] vctrs_0.6.5        crayon_1.5.3       cli_3.6.4          knitr_1.50        
+##  [5] rlang_1.1.5        xfun_0.51          diffobj_0.3.5      jsonlite_1.9.1    
+##  [9] glue_1.8.0         htmltools_0.5.8.1  sass_0.4.9         brio_1.1.5        
+## [13] rmarkdown_2.29     evaluate_1.0.3     jquerylib_0.1.4    visNetwork_2.1.2  
+## [17] fastmap_1.2.0      yaml_2.3.10        lifecycle_1.0.4    bookdown_0.42     
+## [21] DiagrammeR_1.0.11  compiler_4.4.3     RColorBrewer_1.1-3 waldo_0.6.1       
+## [25] htmlwidgets_1.6.4  rstudioapi_0.17.1  blogdown_1.21      digest_0.6.37     
+## [29] R6_2.6.1           pillar_1.10.1      magrittr_2.0.3     bslib_0.9.0       
+## [33] tools_4.4.3        cachem_1.1.0</code></pre>
+</div>

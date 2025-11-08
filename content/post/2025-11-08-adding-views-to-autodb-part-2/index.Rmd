@@ -1,0 +1,560 @@
+---
+title: 'Adding "views" to autodb, part two: initial tests'
+author: ''
+date: '2025-11-08'
+slug: []
+categories: []
+tags:
+- Programming
+- R
+- Relational model
+- autodb
+- Property-based testing
+- Adding "views" to autodb
+subtitle: ''
+summary: ''
+authors: []
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects:
+  - autodb
+math: true
+---
+
+[Last time](../2025-10-28-adding-views-to-autodb-part-1), I showed how I think that adding "views" -- i.e. previous decomposition steps, or "pre-decompositions" -- to a database schema might ensure that it stays connected. Now we need to work out how to implement it.
+
+```{r}
+library(autodb)
+show <- function(x) DiagrammeR::grViz(gv(x), width = "100%")
+```
+
+# Test property
+
+The problem we want to solve is that the database schema given by `autodb` sometimes isn't connected, so the first thing we need is a function that checks whether a schema is connected.
+
+To do this, we construct a directed adjacency matrix for the foreign key references, and use that matrix to determine any relation can reach all the others by following references. Since references are described as a child referring to a parent, we can think of this as looking for a common descendant for all of the relations.
+
+If we consider each relation as being adjacent to itself, we can achieve this by taking higher powers of the adjacency matrix until there's no further change. The result shows the ancestors for each relation, including itself, and we check whether any of them have all of the relations as ancestors.
+
+```{r}
+adjacency <- function(x) {
+  stopifnot(inherits(x, c("database_schema", "database")))
+
+  nms <- names(x)
+  len <- length(x)
+  refs <- references(x)
+  adj <- matrix(
+    FALSE,
+    nrow = len,
+    ncol = len,
+    dimnames = list(nms, nms)
+  )
+  from <- vapply(refs, \(r) match(r[[1]], nms), integer(1))
+  to <- vapply(refs, \(r) match(r[[3]], nms), integer(1))
+  for (n in seq_along(refs))
+    adj[[from[[n]], to[[n]]]] <- TRUE
+  diag(adj) <- TRUE
+  adj
+}
+
+fixed_point <- function(init, step, endif) {
+  old <- init
+  current <- step(init)
+  while (!endif(old, current)) {
+    old <- current
+    current <- step(current)
+  }
+  current
+}
+
+is_connected <- function(x) {
+  connections <- adjacency(x)
+  filled <- fixed_point(connections, \(x) x %*% connections > 0, identical)
+  any(apply(filled, 1, all))
+}
+```
+
+This is not a particularly efficient implementation -- we're re-calculating everything instead of just accounting for new connections on each iteration -- but it works. `adjacency` calculates the initial adjacency matrix. `fixed_point` just encapsulates the loop for repeated application, so we don't have its temporary variables hanging around afterwards.
+
+Let's check this against two simple examples:
+
+```{r}
+connected_example <- autodb(ChickWeight)
+show(connected_example)
+```
+
+Remember, arrows with black heads represent foreign key references, and columns with black cells indicate relation keys.
+
+```{r}
+nonconnected_example <- normalise(functional_dependency(
+  list(
+    list("a", "b"),
+    list("a", "c"),
+    list("b", "d"),
+    list("c", "e"),
+    list(c("d", "e"), "f")
+  ),
+  letters[1:6]
+))
+show(nonconnected_example)
+```
+
+```{r}
+is_connected(connected_example)
+is_connected(nonconnected_example)
+```
+
+Good. I could add some more thorough testing, but this is a simple enough function that I don't want to spend much time on it. Instead, let's look at the problem we want to solve.
+
+# Test case generation
+
+I want this to be test-driven. Specifically, I want to use property tests, so that we can think about general mathematical properties of the algorithm instead of risking getting lost in a forest of individual test cases.
+
+This means writing a test case generator first. I have a more involved generator in `autodb`'s test suite, but we'll write a simple version here that just uses integers. I use the `hedgehog` package for property-based testing, which lets you build up test case generators by composing existing ones. `testthat` adds higher-level generators on top of it, but I want the lower-level flexibility.
+
+```{r}
+library(hedgehog)
+```
+
+First, we generate the number of rows and columns, given upper limits.
+
+- `gen.int(n)` generates a number between 1 and `n`.
+- `gen.with(g, f)` takes a generator `g` of some value `x`, and returns the generator of `f(x)`. Here, we pass it a list of two generators, which gets treated as a single generator for length-two lists.
+
+```{r}
+gen.dims <- function(rows, cols) {
+  list(gen.int(rows), gen.int(cols)) |>
+    gen.with(unlist)
+}
+```
+
+We then write a generator for creating the values for a single column. We'll keep things simple, and suppose we only use integer values. We don't want to allow arbitrary vectors of integers, because this allows a high degree of redundancy. When columns get passed into `discover`, all that matters is when values are equal: for example, these tuples are all equivalent under changing of unique values:
+$$(1, 6, 4, 1, 1, 6), \, (1, 2, 3, 1, 1, 2), \, (3, 1, 2, 3, 3, 1).$$
+
+We avoid this redundancy by requiring the unique values to start from 1, and increment in order of appearance. We implement this requirement by generating the values from a Chinese restaurant process (with concentration 1). We first generate a vector of indices, where an index value is between 1 and its own position. If it's equal to its own position, the result number at that index is a new unique value. If it's less than its own position, then the result number is equal to the number at the given index.
+
+```{r}
+to_crp <- function(x) {
+  n <- length(x)
+  res <- rep(NA_integer_, n)
+  count <- 0L
+  for (index in seq_len(n)) {
+    res[[index]] <- res[[x[[index]]]]
+    if (is.na(res[[index]])) {
+      count <- count + 1L
+      res[[index]] <- count
+    }
+  }
+  res
+}
+
+gen.crp <- function(n) {
+  lapply(seq_len(n), gen.int) |>
+    gen.with(unlist) |>
+    gen.with(to_crp)
+}
+```
+
+We then take each column's generated values, and combine them together into a data frame.
+
+```{r}
+gen.data.frame_from_dims <- function(dims) {
+  gen.list(gen.crp(dims[[1]]), of = dims[[2]]) |>
+    gen.with(as.data.frame) |>
+    gen.with(\(x) setNames(x, letters[seq_len(dims[[2]])]))
+}
+```
+
+Finally, we compose the dimension and data frame generation together, remove duplicate rows from the result, and sort the rows, permuting values afterwards to keep unique value appearances in order. The duplicate rows get dropped by `discover` anyway, but if we get a failing test case we don't want to see them, since they're irrelevant.
+
+```{r}
+sort_and_revalue <- function(x) {
+  x <- x[do.call(order, x), , drop = FALSE]
+  x[] <- lapply(x, \(y) match(y, unique(y)))
+  row.names(x) <- NULL
+  x
+}
+
+gen.data.frame <- function(rows = 10, cols = 10) {
+  gen.dims(rows, cols) |>
+    gen.and_then(gen.data.frame_from_dims) |>
+    gen.with(unique) |>
+    gen.with(sort_and_revalue)
+}
+```
+
+Let's see an example of a data frame generation. I'm setting the seed first: generator results are random, and I want the text to match the displayed results.
+
+```{r}
+set.seed(2025-11-08)
+gen.data.frame(5, 3)
+```
+
+The "shrinks" are simplifications of the original generated example. The idea is that, if a test case fails, the test first attempts to find a simple test case that still fails, so the user sees an attempt at a minimal failing example.
+
+Shrinking is partly where I want to avoid redundancy in the column value generator: if we don't then we can get situations where a column value is "shrunk" to something that's equivalent with respect to decomposition.
+
+# Test property and iteration
+
+With our main test case generator ready, we can think about properties to test. For now, we just kick things off by testing that data frames get normalised into a connected schema, as a property of getting normalised. We know that this should fail: I showed some failing cases last time.
+
+```{r}
+try(forall(
+  gen.data.frame(5, 8) |>
+    gen.with(\(x) {
+      fds <- discover(x)
+      list(data = x, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema)),
+  curry = TRUE
+))
+```
+
+`testthat` returning the stack trace makes the error message far more verbose than it needs to be, but we can see that the test does fail. In fact, it fails on a very simple case, that we might not have thought of. If any of the variables are constant -- i.e. always take the same value -- then they are put into a relation with an empty key, and isolated from the rest of the schema as a special case. This trivially makes the schema non-connected.
+
+If we rejoin the schema to get a flat table, then we do need to join the constants at some point, but I don't think that showing this explicitly would be very useful. Since constants are already treated as a special case, I think that it's acceptable to ignore them with respect to connectivity, so we rewrite `is_connected` to allow ignoring relations with an empty key.
+
+```{r}
+all_nonempty <- function(x) {
+  all(lengths(x) > 0)
+}
+
+is_connected <- function(x, const = TRUE) {
+  stopifnot(inherits(x, c("database_schema", "database")))
+
+  used <- if (const)
+    rep(TRUE, length(x))
+  else
+    vapply(keys(x), all_nonempty, logical(1))
+
+  connections <- adjacency(x[used])
+  filled <- fixed_point(connections, \(x) x %*% connections > 0, identical)
+  any(apply(filled, 1, all))
+}
+
+try(forall(
+  gen.data.frame(5, 8) |>
+    gen.with(\(x) {
+      fds <- discover(x)
+      list(data = x, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema, const = FALSE)),
+  curry = TRUE
+))
+```
+
+This new failing case is also simple: everything is constant, so there are no relations to check connectivity between. This should count as being connected, so I clearly didn't write the connection function correctly. Let's try again.
+
+```{r}
+is_connected <- function(x, const = TRUE) {
+  stopifnot(inherits(x, c("database_schema", "database")))
+  
+  used <- if (const)
+    rep(TRUE, length(x))
+  else
+    vapply(keys(x), all_nonempty, logical(1))
+  if (sum(used) == 0)
+    return(TRUE)
+
+  connections <- adjacency(x[used])
+  filled <- fixed_point(connections, \(x) x %*% connections > 0, identical)
+  any(apply(filled, 1, all))
+}
+
+is_connected(autodb(data.frame(a = 1L)))
+```
+
+That's better. We can adjust the property test accordingly.
+
+```{r}
+try(forall(
+  gen.data.frame(5, 8) |>
+    gen.with(\(x) {
+      fds <- discover(x)
+      list(data = x, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema, const = FALSE)),
+  curry = TRUE
+))
+```
+
+The new failing case is larger, but most of it is unnecessary. The constant variables don't matter, but the default shrinking for our current generator doesn't get rid of them. I don't want to be mucking around with writing custom shrinks, so, to keep things simple, we can remove constants as a final step in generation.
+
+```{r}
+crp_nonconst <- function(x) {
+  x <- x[vapply(x, \(y) any(y != 1), logical(1))]
+  names(x) <- letters[seq_len(ncol(x))]
+  x 
+}
+
+try(forall(
+  gen.data.frame(5, 8) |>
+    gen.with(\(x) {
+      x_nonconst <- crp_nonconst(x)
+      fds <- discover(x_nonconst)
+      list(data = x_nonconst, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema, const = FALSE)),
+  curry = TRUE
+))
+```
+
+This is our first significant failing test case.
+
+```{r, echo=FALSE}
+show(database_schema(
+  relation_schema(
+    list(
+      b = list(c("a", "b"), list("b")),
+      a_c = list(c("a", "c", "d"), list(c("a", "c"), c("a", "d"), c("c", "d"))),
+      b_c = list(c("b", "c"), list(c("b", "c")))
+    ),
+    letters[1:4]
+  ),
+  list(list("b_c", "b", "b", "b"))
+))
+```
+
+The only way to join the schema components together with a pre-decomposition is via a decomposition on the shared attributes $\{a, c\}$, which are a key for `a_c`. We could visualise this as below, as I'd originally intended to be doing:
+
+```{r, echo=FALSE}
+DiagrammeR::grViz(
+'digraph {
+  rankdir = "LR"
+  node [shape=plaintext];
+
+  "b" [label = <
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+    <TR><TD PORT="TITLE" COLSPAN="2">b</TD></TR>
+    <TR><TD PORT="TO_b">b</TD><TD PORT="FROM_b" BGCOLOR="black"></TD></TR>
+    <TR><TD PORT="TO_a">a</TD><TD PORT="FROM_a"></TD></TR>
+    </TABLE>>];
+  "a_c" [label = <
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+    <TR><TD PORT="TITLE" COLSPAN="4">a_c</TD></TR>
+    <TR><TD PORT="TO_a">a</TD><TD BGCOLOR="black"></TD><TD BGCOLOR="black"></TD><TD PORT="FROM_a"></TD></TR>
+    <TR><TD PORT="TO_c">c</TD><TD BGCOLOR="black"></TD><TD></TD><TD PORT="FROM_c" BGCOLOR="black"></TD></TR>
+    <TR><TD PORT="TO_d">d</TD><TD></TD><TD BGCOLOR="black"></TD><TD PORT="FROM_d" BGCOLOR="black"></TD></TR>
+    </TABLE>>];
+  "b_c" [label = <
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+    <TR><TD PORT="TITLE" COLSPAN="2">b_c</TD></TR>
+    <TR><TD PORT="TO_b">b</TD><TD PORT="FROM_b" BGCOLOR="black"></TD></TR>
+    <TR><TD PORT="TO_c">c</TD><TD PORT="FROM_c" BGCOLOR="black"></TD></TR>
+    </TABLE>>];
+
+  "view" [label = <
+    <TABLE BGCOLOR="lightgrey" BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+    <TR><TD PORT="TITLE" COLSPAN="1">view</TD></TR>
+    <TR><TD PORT="ATTR_a">a</TD></TR>
+    <TR><TD PORT="ATTR_b">b</TD></TR>
+    <TR><TD PORT="ATTR_c">c</TD></TR>
+    <TR><TD PORT="ATTR_d">d</TD></TR>
+    </TABLE>>];
+
+  "b_c":FROM_b -> "b":TO_b;
+  "view":TITLE -> "b_c":TITLE [arrowhead="empty" style="dashed"];
+  "view":TITLE -> "a_c":TITLE [arrowhead="empty" style="dashed"];
+}
+')
+```
+
+The dashed arrow with white head indicates that the pre-decomposition includes the target, plus all of its parents joined in, as one of the relations it's decomposed into.
+
+However, I don't think that this visualisation precisely reflects the intended meaning, which is that the pre-decomposition of relations `b_c` and `b` has a foreign key reference to relation `a_c`. This is not conveyed above, since we refer to `a_c` and `b_c` in the same manner. Let's display them a little differently:
+
+```{r, echo=FALSE}
+DiagrammeR::grViz(
+'digraph {
+  rankdir = "LR"
+  node [shape=plaintext];
+
+  "b" [label = <
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+    <TR><TD PORT="TITLE" COLSPAN="2">b</TD></TR>
+    <TR><TD PORT="TO_b">b</TD><TD PORT="FROM_b" BGCOLOR="black"></TD></TR>
+    <TR><TD PORT="TO_a">a</TD><TD PORT="FROM_a"></TD></TR>
+    </TABLE>>];
+  "a_c" [label = <
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+    <TR><TD PORT="TITLE" COLSPAN="4">a_c</TD></TR>
+    <TR><TD PORT="TO_a">a</TD><TD BGCOLOR="black"></TD><TD BGCOLOR="black"></TD><TD PORT="FROM_a"></TD></TR>
+    <TR><TD PORT="TO_c">c</TD><TD BGCOLOR="black"></TD><TD></TD><TD PORT="FROM_c" BGCOLOR="black"></TD></TR>
+    <TR><TD PORT="TO_d">d</TD><TD></TD><TD BGCOLOR="black"></TD><TD PORT="FROM_d" BGCOLOR="black"></TD></TR>
+    </TABLE>>];
+  "b_c" [label = <
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+    <TR><TD PORT="TITLE" COLSPAN="2">b_c</TD></TR>
+    <TR><TD PORT="TO_b">b</TD><TD PORT="FROM_b" BGCOLOR="black"></TD></TR>
+    <TR><TD PORT="TO_c">c</TD><TD PORT="FROM_c" BGCOLOR="black"></TD></TR>
+    </TABLE>>];
+
+  "view" [label = <
+    <TABLE BGCOLOR="lightgrey" BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+    <TR><TD PORT="TITLE" COLSPAN="1">view</TD></TR>
+    <TR><TD PORT="ATTR_a">a</TD></TR>
+    <TR><TD PORT="ATTR_b">b</TD></TR>
+    <TR><TD PORT="ATTR_c">c</TD></TR>
+    </TABLE>>];
+
+  "b_c":FROM_b -> "b":TO_b;
+  "view":TITLE -> "b_c":TITLE [arrowhead="empty" style="dashed"];
+  "view":ATTR_a -> "a_c":TO_a [style="dashed"];
+  "view":ATTR_c -> "a_c":TO_c [style="dashed"];
+}
+')
+```
+
+We've made two changes to the pre-decomposition, to make it more informative:
+
+- it is now a pre-decomposition only of `b_c` (and `b` as a parent), not `a_c`, so it doesn't include attribute `d`;
+- it has a foreign key reference to `a_c` instead of including it, conveying that `b_c` and `b` together refer to `a_c` before they're split apart. The arrows are still dashed, to indicate a view is involved, but the black heads indicate a foreign key reference, as usual.
+
+I'm happier with this approach. We now have an idea of what information we need to store for the view:
+
+- names of the relations it's a pre-decomposition of
+- attributes within the pre-decomposition (implied by the above, but stating them explicitly allows for visualisation of the below)
+- foreign key references to those relations (those with no reference are used directly)
+
+Next time, we'll start writing a simple implementation.
+
+# Code
+
+Here's all the relevant code so far, ignoring the random seed:
+
+```{r, eval=FALSE}
+library(autodb)
+library(hedgehog)
+
+fixed_point <- function(init, step, endif) {
+  old <- init
+  current <- step(init)
+  while (!endif(old, current)) {
+    old <- current
+    current <- step(current)
+  }
+  current
+}
+
+adjacency <- function(x) {
+  stopifnot(inherits(x, c("database_schema", "database")))
+
+  nms <- names(x)
+  len <- length(x)
+  refs <- references(x)
+  adj <- matrix(
+    FALSE,
+    nrow = len,
+    ncol = len,
+    dimnames = list(nms, nms)
+  )
+  from <- vapply(refs, \(r) match(r[[1]], nms), integer(1))
+  to <- vapply(refs, \(r) match(r[[3]], nms), integer(1))
+  for (n in seq_along(refs))
+    adj[[from[[n]], to[[n]]]] <- TRUE
+  diag(adj) <- TRUE
+  adj
+}
+
+all_nonempty <- function(x) {
+  all(lengths(x) > 0)
+}
+
+is_connected <- function(x, const = TRUE) {
+  stopifnot(inherits(x, c("database_schema", "database")))
+  
+  used <- if (const)
+    rep(TRUE, length(x))
+  else
+    vapply(keys(x), all_nonempty, logical(1))
+  if (sum(used) == 0)
+    return(TRUE)
+
+  connections <- adjacency(x[used])
+  filled <- fixed_point(connections, \(x) x %*% connections > 0, identical)
+  any(apply(filled, 1, all))
+}
+
+gen.dims <- function(rows, cols) {
+  list(gen.int(rows), gen.int(cols)) |>
+    gen.with(unlist)
+}
+
+to_crp <- function(x) {
+  n <- length(x)
+  res <- rep(NA_integer_, n)
+  count <- 0L
+  for (index in seq_len(n)) {
+    res[[index]] <- res[[x[[index]]]]
+    if (is.na(res[[index]])) {
+      count <- count + 1L
+      res[[index]] <- count
+    }
+  }
+  res
+}
+
+gen.crp <- function(n) {
+  lapply(seq_len(n), gen.int) |>
+    gen.with(unlist) |>
+    gen.with(to_crp)
+}
+
+gen.data.frame_from_dims <- function(dims) {
+  gen.list(gen.crp(dims[[1]]), of = dims[[2]]) |>
+    gen.with(\(x) {
+      as.data.frame(x) |>
+        setNames(letters[seq_len(dims[[2]])])
+    })
+}
+
+sort_and_revalue <- function(x) {
+  x <- x[do.call(order, x), , drop = FALSE]
+  x[] <- lapply(x, \(y) match(y, unique(y)))
+  row.names(x) <- NULL
+  x
+}
+
+gen.data.frame <- function(rows = 10, cols = 10) {
+  gen.dims(rows, cols) |>
+    gen.and_then(gen.data.frame_from_dims) |>
+    gen.with(unique) |>
+    gen.with(sort_and_revalue)
+}
+
+crp_nonconst <- function(x) {
+  x <- x[vapply(x, \(y) any(y != 1), logical(1))]
+  names(x) <- letters[seq_len(ncol(x))]
+  x  
+}
+
+try(forall(
+  gen.data.frame(5, 8) |>
+    gen.with(\(x) {
+      fds <- discover(x)
+      list(data = x, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema)),
+  curry = TRUE
+))
+
+try(forall(
+  gen.data.frame(5, 8) |>
+    gen.with(\(x) {
+      x_nonconst <- crp_nonconst(x)
+      fds <- discover(x_nonconst)
+      list(data = x_nonconst, fds = fds, schema = normalise(fds))
+    }),
+  function(data, fds, schema) expect_true(is_connected(schema, const = FALSE)),
+  curry = TRUE
+))
+```
+
+# Session information
+
+```{r}
+sessionInfo()
+```
