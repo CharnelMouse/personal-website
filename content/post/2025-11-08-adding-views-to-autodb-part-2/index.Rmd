@@ -12,6 +12,7 @@ tags:
 - Property-based testing
 - Adding "views" to autodb
 subtitle: ''
+lastmod: '2025-11-09'
 summary: ''
 authors: []
 featured: no
@@ -195,7 +196,7 @@ gen.data.frame(5, 3)
 
 The "shrinks" are simplifications of the original generated example. The idea is that, if a test case fails, the test first attempts to find a simple test case that still fails, so the user sees an attempt at a minimal failing example.
 
-Shrinking is partly where I want to avoid redundancy in the column value generator: if we don't then we can get situations where a column value is "shrunk" to something that's equivalent with respect to decomposition.
+Shrinking is partly where I want to avoid redundancy in the column value generator: if we don't then we can get situations where a column value is "shrunk" to something that's equivalent with respect to decomposition. We still see some equivalent shrinks here, due to using `unique`, but less than we would have done otherwise.
 
 # Test property and iteration
 
